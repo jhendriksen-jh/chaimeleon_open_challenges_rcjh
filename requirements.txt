@@ -2,3 +2,4 @@ numpy
 Pandas
 Pillow
 tqdm
+nibabel
