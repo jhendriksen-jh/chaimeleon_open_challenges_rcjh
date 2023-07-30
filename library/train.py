@@ -41,7 +41,7 @@ class Trainer():
     def train_epoch(self, epoch):
         start_time = time.time()
         self.model.train()
-        for batch_idx, (data, target) in enumerate(self.train_loader):
+        for batch_idx, (image, metadata, target) in enumerate(self.train_loader):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
@@ -59,7 +59,7 @@ class Trainer():
         with torch.no_grad():
             val_loss = 0
             val_acc = 0
-            for batch_idx, (data, target) in enumerate(self.val_loader):
+            for batch_idx, (image, metadata, target) in enumerate(self.val_loader):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 loss = self.loss_fn(output, target)

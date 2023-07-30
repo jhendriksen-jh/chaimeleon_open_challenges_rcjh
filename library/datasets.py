@@ -201,7 +201,6 @@ class ProstateCancerDataset(ChaimeleonData):
     def __getitem__(self, idx):
         current_case = self.prepared_cases[idx]
         current_case_image = current_case["image"]
-        transformed_image = self.image_transformations(current_case_image)
         current_metadata = current_case["metadata"]
         current_ground_truth = current_case["ground_truth"]
         return (
