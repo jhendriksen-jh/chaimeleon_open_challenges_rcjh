@@ -4,15 +4,12 @@ Model class definitions
 import torch.nn as nn
 
 
-class ChaimeleonChallengeModel:
-    def __init__(self):
-        pass
 
-    def get_number_of_parameters(self):
-        return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+def get_number_of_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-class ProstateImageModel(nn.Module, ChaimeleonChallengeModel):
+class ProstateImageModel(nn.Module):
     def __init__(self):
         super(ProstateImageModel, self).__init__()
         self.relu = nn.ReLU(inplace=True)
@@ -27,12 +24,10 @@ class ProstateImageModel(nn.Module, ChaimeleonChallengeModel):
         self.conv7 = nn.Conv2d(in_channels=384, out_channels=512, kernel_size=3, stride=2, padding=1) # 5
         self.downpool1 = nn.Conv2d(in_channels = 16, out_channels=384, kernel_size=5, stride=8, padding=2) # 120 -> 15
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(in_features=5*5*384, out_features=2048)
-        self.fc2 = nn.Linear(in_features=2048, out_features=2)
+        self.fc1 = nn.Linear(in_features=5*5*512, out_features=256)
+        self.fc2 = nn.Linear(in_features=256, out_features=2)
         self.drop = nn.Dropout(p=0.2)
         self.drop2d = nn.Dropout2d(p=0.1)
-        
-        self.model = self
 
     def forward(self, x):
         x = self.conv1(x)

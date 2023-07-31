@@ -15,11 +15,12 @@ from collections import defaultdict
 
 
 class ChaimeleonData:
-    def __init__(self, data_directory, random_seed=20380119):
+    def __init__(self, data_directory, random_seed=2038):
         self.random_seed = random_seed
         self.data_directory = data_directory
         self.image_arrays = []
         self.raw_cases = {}
+        self.prepared_cases = []
 
         self.process_data_directory()
 
@@ -30,26 +31,29 @@ class ChaimeleonData:
         self.get_dataset_splits()
 
     def add_raw_case_data(self, case_directory):
-        case_files = os.listdir(case_directory)
-        for case_file in case_files:
-            if case_file.endswith(".nii.gz"):
-                case_image = self.load_image_file(
-                    os.path.join(case_directory, case_file)
-                )
-            elif case_file.endswith("ground_truth.json"):
-                case_ground_truth = self.add_raw_ground_truth(
-                    os.path.join(case_directory, case_file)
-                )
-            elif case_file.endswith(".json"):
-                case_metadata = self.add_raw_metadata(
-                    os.path.join(case_directory, case_file)
-                )
-        raw_case_data = {
-            "image": case_image,
-            "metadata": case_metadata,
-            "ground_truth": case_ground_truth,
-        }
-        self.raw_cases[case_directory] = raw_case_data
+        case_folders = os.listdir(case_directory)
+        for case_folder in case_folders:
+            case_path = os.path.join(case_directory, case_folder)
+            case_files = os.listdir(case_path)
+            for case_file in case_files:
+                if case_file.endswith(".nii.gz"):
+                    case_image = self.load_image_file(
+                        os.path.join(case_path, case_file)
+                    )
+                elif case_file.endswith("ground_truth.json"):
+                    case_ground_truth = self.add_raw_ground_truth(
+                        os.path.join(case_path, case_file)
+                    )
+                elif case_file.endswith(".json"):
+                    case_metadata = self.add_raw_metadata(
+                        os.path.join(case_path, case_file)
+                    )
+            raw_case_data = {
+                "image": case_image,
+                "metadata": case_metadata,
+                "ground_truth": case_ground_truth,
+            }
+            self.raw_cases[case_folder] = raw_case_data
         return raw_case_data
 
     def add_raw_metadata(self, metadata_file):
@@ -65,10 +69,10 @@ class ChaimeleonData:
     def load_image_file(self, image_file):
         nifti_image = nib.load(image_file)
         nii_data = nifti_image.get_fdata()
-        nii_affine = nifti_image.get_affine()
-        nii_header = nifti_image.get_header()
+        # nii_affine = nifti_image.get_affine()
+        # nii_header = nifti_image.get_header()
         self.image_arrays.append(nii_data)
-        return nii_data, nii_affine, nii_header
+        return nii_data
 
     def get_dataset_splits(
         self, train_percentage=0.75, val_percentage=0.15, test_percentage=0.1
@@ -98,17 +102,19 @@ class ChaimeleonData:
         }
 
     def __len__(self):
-        return len(self.image_arrays)
+        return len(self.prepared_cases)
 
 
 class ProstateCancerDataset(ChaimeleonData):
     def __init__(self, data_directory, split_type="train", random_seed=20380119):
+        import pudb; pudb.set_trace()
         super().__init__(data_directory)
         self.split_type = split_type
-        self.split_keys = super().keys_by_split[split_type]
-        self.raw_cases = super().raw_cases
-        self.categorical_metadata = ['histology_type', 'pirads', 'neural_invasion', 'vascular_invasion', 'lymphatic_invasion']
+        self.split_keys = self.keys_by_split[split_type]
+        # self.categorical_metadata = ['histology_type', 'pirads', 'neural_invasion', 'vascular_invasion', 'lymphatic_invasion']
+        self.categorical_metadata = ['histology_type', 'neural_invasion', 'vascular_invasion', 'lymphatic_invasion']
         self.numerical_metadata = ['age', 'psa']
+        self.image_size = (224, 224)
         self.get_metadata_details()
         self.define_image_transformations(split_type)
         self.prepare_dataset()
@@ -171,25 +177,25 @@ class ProstateCancerDataset(ChaimeleonData):
         return metadata_details
 
     def normalize_metadata(self, raw_metadata):
-        all_encoded_metadata = np.zeros((1,0))
+        all_encoded_metadata = np.zeros((0,1))
         for key in self.categorical_metadata:
             current_value = raw_metadata[key]
             num_possible_values = len(self.metadata_details[key]['sorted_values'])
             encoded_location = self.metadata_details[key]['sorted_values'].index(current_value)
-            encoded_metadata = np.zeros((1,num_possible_values))
+            encoded_metadata = np.zeros((num_possible_values,1))
             encoded_metadata[encoded_location] = 1
-            all_encoded_metadata = np.concatenate((all_encoded_metadata, encoded_metadata), axis=1)
+            all_encoded_metadata = np.concatenate((all_encoded_metadata, encoded_metadata), axis=0)
         for key in self.numerical_metadata:
             current_value = raw_metadata[key]
             max_value = self.metadata_details[key]['max']
             min_value = self.metadata_details[key]['min']
             normalized_value = (current_value - min_value) / (max_value - min_value)
-            normalized_value = np.ndarray([normalized_value])
-            all_encoded_metadata = np.concatenate((all_encoded_metadata, normalized_value), axis=1)
+            normalized_value = np.array([[normalized_value]])
+            all_encoded_metadata = np.concatenate((all_encoded_metadata, normalized_value), axis=0)
         return all_encoded_metadata
 
     def normalize_ground_truth(self, raw_ground_truth):
-        normalized_ground_truth = np.zeros((1,2))
+        normalized_ground_truth = np.zeros((2,1))
         if raw_ground_truth == 'Low':
             normalized_ground_truth[0] = 1
         elif raw_ground_truth == 'High':

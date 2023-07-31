@@ -1,7 +1,27 @@
+import os
 import tqdm
 import time
 import torch
 import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader
+
+PROSTATE_LOSS = torch.nn.BCEWithLogitsLoss(reduction='mean')
+
+def create_optimizer(model, lr=0.0005):
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    return optimizer
+
+
+def create_dataloader(dataset, batch_size=16, shuffle=True, num_workers=os.cpu_count() - 1):
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+
+
+def get_device(device=None):
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device(device)
+    return device
 
 
 class Trainer():
@@ -24,6 +44,7 @@ class Trainer():
         self.best_val_loss = 1e99
 
     def train(self, epochs):
+        import pudb; pudb.set_trace()
         for epoch in range(epochs):
             self.train_epoch(epoch)
             self.val_epoch(epoch)
