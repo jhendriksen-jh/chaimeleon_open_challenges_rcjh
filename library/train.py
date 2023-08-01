@@ -24,9 +24,9 @@ def get_device(device=None):
     return device
 
 
-class Trainer():
+class ImageTrainer():
     def __init__(self, model, train_loader, val_loader, loss_fn, optimizer, device, scheduler=None):
-        self.model = model
+        self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.loss_fn = loss_fn
@@ -62,16 +62,16 @@ class Trainer():
     def train_epoch(self, epoch):
         start_time = time.time()
         self.model.train()
-        for batch_idx, (image, metadata, target) in enumerate(self.train_loader):
-            data, target = data.to(self.device), target.to(self.device)
+        for batch_idx, (images, metadata, targets) in enumerate(self.train_loader):
+            images, targets = images.to(self.device), targets.to(self.device)
             self.optimizer.zero_grad()
-            output = self.model(data)
-            loss = self.loss_fn(output, target)
+            output = self.model(images)
+            loss = self.loss_fn(output, targets)
             loss.backward()
             self.optimizer.step()
             self.train_loss.append(loss.item())
             pred = output.argmax(dim=1, keepdim=True)
-            self.train_acc.append(pred.eq(target.view_as(pred)).sum().item())
+            self.train_acc.append(pred.eq(targets.view_as(pred)).sum().item())
             self.train_time.append(time.time() - start_time)
 
     def val_epoch(self, epoch):
@@ -80,13 +80,13 @@ class Trainer():
         with torch.no_grad():
             val_loss = 0
             val_acc = 0
-            for batch_idx, (image, metadata, target) in enumerate(self.val_loader):
-                data, target = data.to(self.device), target.to(self.device)
-                output = self.model(data)
-                loss = self.loss_fn(output, target)
+            for batch_idx, (images, metadata, targets) in enumerate(self.val_loader):
+                images, targets = images.to(self.device), targets.to(self.device)
+                output = self.model(images)
+                loss = self.loss_fn(output, targets)
                 val_loss += loss.item()
                 pred = output.argmax(dim=1, keepdim=True)
-                val_acc += pred.eq(target.view_as(pred)).sum().item()
+                val_acc += pred.eq(targets.view_as(pred)).sum().item()
             val_loss /= len(self.val_loader.dataset)
             val_acc /= len(self.val_loader.dataset)
             self.val_loss.append(val_loss)

@@ -12,6 +12,7 @@ import nibabel as nib
 import torchvision as tv
 
 from collections import defaultdict
+from PIL import Image
 
 
 class ChaimeleonData:
@@ -107,7 +108,6 @@ class ChaimeleonData:
 
 class ProstateCancerDataset(ChaimeleonData):
     def __init__(self, data_directory, split_type="train", random_seed=20380119):
-        import pudb; pudb.set_trace()
         super().__init__(data_directory)
         self.split_type = split_type
         self.split_keys = self.keys_by_split[split_type]
@@ -144,15 +144,18 @@ class ProstateCancerDataset(ChaimeleonData):
             image_transformations = tv.transforms.Compose(
                 [
                     tv.transforms.RandomAffine(
-                        degrees=180, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=5
+                        degrees=180, 
+                        translate=(0.1, 0.1), 
+                        scale=(0.9, 1.1), 
+                        shear=5
                     ),
                     tv.transforms.ToTensor(),
-                    tv.transforms.Resize(self.image_size),
+                    tv.transforms.Resize(self.image_size, antialias=True),
                 ]
             )
         else:
             image_transformations = tv.transforms.Compose(
-                [tv.transforms.ToTensor(), tv.transforms.Resize(self.image_size)]
+                [tv.transforms.ToTensor(), tv.transforms.Resize(self.image_size, antialias=True)]
             )
         self.image_transformations = image_transformations
         return image_transformations
@@ -205,10 +208,11 @@ class ProstateCancerDataset(ChaimeleonData):
         return normalized_ground_truth
 
     def __getitem__(self, idx):
-        current_case = self.prepared_cases[idx]
-        current_case_image = current_case["image"]
+        # import pudb; pudb.set_trace()
+        current_case = list(self.prepared_cases[idx].values())[0]
+        current_case_image = Image.fromarray(np.asarray(current_case["image"]))
         current_metadata = current_case["metadata"]
-        current_ground_truth = current_case["ground_truth"]
+        current_ground_truth = np.squeeze(current_case["ground_truth"])
         return (
             self.image_transformations(current_case_image),
             torch.FloatTensor(current_metadata),
