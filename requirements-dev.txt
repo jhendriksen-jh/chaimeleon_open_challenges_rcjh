@@ -4,3 +4,4 @@ jupyter
 ipykernel==6.21.1
 matplotlib
 matplotlib-inline
+pyqt5

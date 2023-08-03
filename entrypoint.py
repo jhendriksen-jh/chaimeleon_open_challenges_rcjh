@@ -1,6 +1,6 @@
 from library.datasets import ProstateCancerDataset
 from library.models import ProstateImageModel, ProstateMetadataModel
-from library.train import ImageTrainer, get_device, create_dataloader, create_optimizer, PROSTATE_LOSS
+from library.train import Trainer, get_device, create_dataloader, create_optimizer, PROSTATE_LOSS
 
 def main(data_directory: str, train: bool = False):
     if train:
@@ -12,14 +12,24 @@ def main(data_directory: str, train: bool = False):
         metadata_model = ProstateMetadataModel()
 
         device = get_device()
-        train_loader = create_dataloader(train_dataset)
-        val_loader = create_dataloader(val_dataset)
+        train_loader = create_dataloader(train_dataset, batch_size=512)
+        val_loader = create_dataloader(val_dataset, batch_size=512)
         optimizer = create_optimizer(image_model)
 
-        trainer = ImageTrainer(image_model, train_loader, val_loader, PROSTATE_LOSS, optimizer, device)
+        print("\n######## Training Image Model ########\n")
 
-        train_dataset[0]
-        trainer.train(4)
+        ProstateImageTrainer = Trainer(image_model, train_loader, val_loader, PROSTATE_LOSS, optimizer, device)
+        ProstateImageTrainer.train(16)
+        ProstateImageTrainer.plot_acc()
+        ProstateImageTrainer.plot_loss()
+
+        print("\n######## Training Metadata Model ########\n")
+
+        metadata_optimizer = create_optimizer(metadata_model)
+        ProstateMetadataTrainer = Trainer(metadata_model, train_loader, val_loader, PROSTATE_LOSS, metadata_optimizer, device)
+        ProstateMetadataTrainer.train(16)
+        ProstateMetadataTrainer.plot_acc()
+        ProstateMetadataTrainer.plot_loss()
 
 
 

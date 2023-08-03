@@ -24,7 +24,7 @@ def get_device(device=None):
     return device
 
 
-class ImageTrainer():
+class Trainer():
     def __init__(self, model, train_loader, val_loader, loss_fn, optimizer, device, scheduler=None):
         self.model = model.to(device)
         self.train_loader = train_loader
@@ -44,10 +44,9 @@ class ImageTrainer():
         self.best_val_loss = 1e99
 
     def train(self, epochs):
-        import pudb; pudb.set_trace()
         for epoch in range(epochs):
-            self.train_epoch(epoch)
-            self.val_epoch(epoch)
+            self.train_epoch()
+            self.val_epoch()
             if self.scheduler is not None:
                 self.scheduler.step()
             if self.val_acc[-1] > self.best_val_acc:
@@ -55,43 +54,63 @@ class ImageTrainer():
                 self.best_val_loss = self.val_loss[-1]
                 self.best_epoch = epoch + 1
                 torch.save(self.model.state_dict(), 'best_model.pt')
-                print(f'New best validation accuracy: {self.best_val_acc:.4f} at epoch {self.best_epoch}')
+                print(f'New best validation accuracy: {self.best_val_acc:.4f} at epoch {self.best_epoch} - train acc: {self.train_acc[-1]:.4f}')
             else:
-                print(f'Validation accuracy did not improve from {self.best_val_acc:.4f} to {self.val_acc[-1]:.4f} at epoch {self.best_epoch}')
+                print(f'Validation accuracy did not improve from {self.best_val_acc:.4f} to {self.val_acc[-1]:.4f} at epoch {self.best_epoch} - train acc: {self.train_acc[-1]:.4f}')
     
-    def train_epoch(self, epoch):
+    def train_epoch(self):
+        epoch_loss = 0
+        epoch_acc = 0
         start_time = time.time()
         self.model.train()
         for batch_idx, (images, metadata, targets) in enumerate(self.train_loader):
-            images, targets = images.to(self.device), targets.to(self.device)
+            if self.model.model_data_type == 'images':
+                data = images
+            elif self.model.model_data_type == 'metadata':
+                data = metadata.squeeze()
+            else:
+                data = (images, metadata)
+            data, targets = data.to(self.device), targets.to(self.device)
             self.optimizer.zero_grad()
-            output = self.model(images)
+            output = self.model(data)
             loss = self.loss_fn(output, targets)
             loss.backward()
             self.optimizer.step()
-            self.train_loss.append(loss.item())
             pred = output.argmax(dim=1, keepdim=True)
-            self.train_acc.append(pred.eq(targets.view_as(pred)).sum().item())
-            self.train_time.append(time.time() - start_time)
+            epoch_loss += loss.item()
+            epoch_acc += pred.eq(targets.argmax(dim=1, keepdim=True).view_as(pred)).sum().item()
+        self.train_acc.append(epoch_acc / len(self.train_loader.dataset))
+        self.train_loss.append(epoch_loss / len(self.train_loader.dataset))
+        self.train_time.append(time.time() - start_time)
+        
+        return self.train_loss, self.train_acc, self.train_time
 
-    def val_epoch(self, epoch):
+    def val_epoch(self):
         start_time = time.time()
         self.model.eval()
         with torch.no_grad():
             val_loss = 0
             val_acc = 0
             for batch_idx, (images, metadata, targets) in enumerate(self.val_loader):
-                images, targets = images.to(self.device), targets.to(self.device)
-                output = self.model(images)
+                if self.model.model_data_type == 'images':
+                    data = images
+                elif self.model.model_data_type == 'metadata':
+                    data = metadata.squeeze()
+                else:
+                    data = (images, metadata)
+                data, targets = data.to(self.device), targets.to(self.device)
+                output = self.model(data)
                 loss = self.loss_fn(output, targets)
                 val_loss += loss.item()
                 pred = output.argmax(dim=1, keepdim=True)
-                val_acc += pred.eq(targets.view_as(pred)).sum().item()
+                val_acc += pred.eq(targets.argmax(dim=1, keepdim=True).view_as(pred)).sum().item()
             val_loss /= len(self.val_loader.dataset)
             val_acc /= len(self.val_loader.dataset)
             self.val_loss.append(val_loss)
             self.val_acc.append(val_acc)
             self.val_time.append(time.time() - start_time)
+        
+        return self.val_loss, self.val_acc, self.val_time
 
     def plot_loss(self):
         plt.plot(self.train_loss, label='train_loss')

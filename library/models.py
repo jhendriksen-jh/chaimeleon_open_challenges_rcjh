@@ -12,6 +12,8 @@ def get_number_of_parameters(model):
 class ProstateImageModel(nn.Module):
     def __init__(self):
         super(ProstateImageModel, self).__init__()
+        self.model_data_type = 'images'
+
         self.relu = nn.ReLU()
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=16, kernel_size=7, stride=2, padding=3) # 240
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=1, padding='same') # 120
@@ -66,8 +68,10 @@ class ProstateImageModel(nn.Module):
 class ProstateMetadataModel(nn.Module):
     def __init__(self):
         super(ProstateMetadataModel, self).__init__()
+        self.model_data_type ='metadata'
+
         self.relu = nn.ReLU(inplace=True)
-        self.fc1 = nn.Linear(in_features = 16, out_features=16)
+        self.fc1 = nn.Linear(in_features = 12, out_features=16)
         self.fc2 = nn.Linear(in_features = 16, out_features=32)
         self.fc3 = nn.Linear(in_features = 32, out_features=128)
         self.fc4 = nn.Linear(in_features = 128, out_features=256)
@@ -76,26 +80,29 @@ class ProstateMetadataModel(nn.Module):
         self.fc7 = nn.Linear(in_features = 64, out_features=2)
         self.drop = nn.Dropout(p=0.1)
 
-        self.model = self
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.relu(x)
+        out = self.fc1(x)
+        out = self.relu(out)
 
-        x = self.fc2(x)
-        x = self.relu(x)
+        out = self.fc2(out)
+        out = self.relu(out)
 
-        x = self.fc3(x)
-        x = self.relu(x)
+        out = self.fc3(out)
+        out = self.relu(out)
 
-        x = self.fc4(x)
-        x = self.drop(x)
-        x = self.relu(x)
+        out = self.fc4(out)
+        out = self.drop(out)
+        out = self.relu(out)
 
-        x = self.fc5(x)
-        x = self.drop(x)
-        x = self.relu(x)
+        out = self.fc5(out)
+        out = self.drop(out)
+        out = self.relu(out)
 
-        x = self.fc6(x)
+        out = self.fc6(out)
+        out = self.drop(out)
+        out = self.relu(out)
 
-        return x
+        out = self.fc7(out)
+
+        return out
