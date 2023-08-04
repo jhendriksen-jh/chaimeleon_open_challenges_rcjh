@@ -65,12 +65,12 @@ class Trainer():
         self.model.train()
         for batch_idx, (images, metadata, targets) in enumerate(self.train_loader):
             if self.model.model_data_type == 'images':
-                data = images
+                data = images.to(self.device)
             elif self.model.model_data_type == 'metadata':
-                data = metadata.squeeze()
+                data = metadata.squeeze().to(self.device)
             else:
-                data = (images, metadata)
-            data, targets = data.to(self.device), targets.to(self.device)
+                data = images.to(self.device), metadata.squeeze().to(self.device)
+            targets = targets.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
             loss = self.loss_fn(output, targets)
@@ -93,12 +93,12 @@ class Trainer():
             val_acc = 0
             for batch_idx, (images, metadata, targets) in enumerate(self.val_loader):
                 if self.model.model_data_type == 'images':
-                    data = images
+                    data = images.to(self.device)
                 elif self.model.model_data_type == 'metadata':
-                    data = metadata.squeeze()
+                    data = metadata.squeeze().to(self.device)
                 else:
-                    data = (images, metadata)
-                data, targets = data.to(self.device), targets.to(self.device)
+                    data = images.to(self.device), metadata.squeeze().to(self.device)
+                targets = targets.to(self.device)
                 output = self.model(data)
                 loss = self.loss_fn(output, targets)
                 val_loss += loss.item()
