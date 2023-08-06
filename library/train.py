@@ -47,16 +47,16 @@ class Trainer():
         for epoch in range(epochs):
             self.train_epoch()
             self.val_epoch()
-            if self.scheduler is not None:
-                self.scheduler.step()
             if self.val_acc[-1] > self.best_val_acc:
                 self.best_val_acc = self.val_acc[-1]
                 self.best_val_loss = self.val_loss[-1]
                 self.best_epoch = epoch + 1
-                torch.save(self.model.state_dict(), 'best_model.pt')
-                print(f'New best validation accuracy: {self.best_val_acc:.4f} at epoch {self.best_epoch} - train acc: {self.train_acc[-1]:.4f}')
+                torch.save(self.model.state_dict(), f'best_{self.model.__class__.__name__}.pt')
+                print(f'{epoch}/{epochs} - New best validation accuracy: {self.best_val_acc:.4f} at epoch {self.best_epoch} - train acc: {self.train_acc[-1]:.4f}')
             else:
-                print(f'Validation accuracy did not improve from {self.best_val_acc:.4f} to {self.val_acc[-1]:.4f} at epoch {self.best_epoch} - train acc: {self.train_acc[-1]:.4f}')
+                print(f'{epoch}/{epochs} - Validation accuracy did not improve from {self.best_val_acc:.4f} to {self.val_acc[-1]:.4f} at epoch {self.best_epoch} - train acc: {self.train_acc[-1]:.4f}')
+            if self.scheduler is not None:
+                self.scheduler.step(self.best_val_acc)
     
     def train_epoch(self):
         epoch_loss = 0
