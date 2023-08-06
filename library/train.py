@@ -47,16 +47,16 @@ class Trainer():
         for epoch in range(epochs):
             self.train_epoch()
             self.val_epoch()
-            if self.scheduler is not None:
-                self.scheduler.step()
             if self.val_acc[-1] > self.best_val_acc:
                 self.best_val_acc = self.val_acc[-1]
                 self.best_val_loss = self.val_loss[-1]
                 self.best_epoch = epoch + 1
-                torch.save(self.model.state_dict(), 'best_model.pt')
-                print(f'New best validation accuracy: {self.best_val_acc:.4f} at epoch {self.best_epoch} - train acc: {self.train_acc[-1]:.4f}')
+                torch.save(self.model.state_dict(), f'best_{self.model.__class__.__name__}.pt')
+                print(f'{epoch}/{epochs} - New best validation accuracy: {self.best_val_acc:.4f} at epoch {self.best_epoch} - train acc: {self.train_acc[-1]:.4f}')
             else:
-                print(f'Validation accuracy did not improve from {self.best_val_acc:.4f} to {self.val_acc[-1]:.4f} at epoch {self.best_epoch} - train acc: {self.train_acc[-1]:.4f}')
+                print(f'{epoch}/{epochs} - Validation accuracy did not improve from {self.best_val_acc:.4f} to {self.val_acc[-1]:.4f} at epoch {self.best_epoch} - train acc: {self.train_acc[-1]:.4f}')
+            if self.scheduler is not None:
+                self.scheduler.step(self.best_val_acc)
     
     def train_epoch(self):
         epoch_loss = 0
@@ -65,12 +65,12 @@ class Trainer():
         self.model.train()
         for batch_idx, (images, metadata, targets) in enumerate(self.train_loader):
             if self.model.model_data_type == 'images':
-                data = images
+                data = images.to(self.device)
             elif self.model.model_data_type == 'metadata':
-                data = metadata.squeeze()
+                data = metadata.squeeze().to(self.device)
             else:
-                data = (images, metadata)
-            data, targets = data.to(self.device), targets.to(self.device)
+                data = images.to(self.device), metadata.squeeze().to(self.device)
+            targets = targets.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
             loss = self.loss_fn(output, targets)
@@ -93,12 +93,12 @@ class Trainer():
             val_acc = 0
             for batch_idx, (images, metadata, targets) in enumerate(self.val_loader):
                 if self.model.model_data_type == 'images':
-                    data = images
+                    data = images.to(self.device)
                 elif self.model.model_data_type == 'metadata':
-                    data = metadata.squeeze()
+                    data = metadata.squeeze().to(self.device)
                 else:
-                    data = (images, metadata)
-                data, targets = data.to(self.device), targets.to(self.device)
+                    data = images.to(self.device), metadata.squeeze().to(self.device)
+                targets = targets.to(self.device)
                 output = self.model(data)
                 loss = self.loss_fn(output, targets)
                 val_loss += loss.item()
