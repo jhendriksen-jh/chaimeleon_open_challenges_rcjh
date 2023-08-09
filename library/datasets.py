@@ -112,8 +112,13 @@ class ProstateCancerDataset(ChaimeleonData):
         self.split_type = split_type
         self.split_keys = self.keys_by_split[split_type]
         # self.categorical_metadata = ['histology_type', 'pirads', 'neural_invasion', 'vascular_invasion', 'lymphatic_invasion']
-        self.categorical_metadata = ['histology_type', 'neural_invasion', 'vascular_invasion', 'lymphatic_invasion']
-        self.numerical_metadata = ['age', 'psa']
+        self.categorical_metadata = [
+            "histology_type",
+            "neural_invasion",
+            "vascular_invasion",
+            "lymphatic_invasion",
+        ]
+        self.numerical_metadata = ["age", "psa"]
         self.image_size = (224, 224)
         self.get_metadata_details()
         self.define_image_transformations(split_type)
@@ -144,10 +149,7 @@ class ProstateCancerDataset(ChaimeleonData):
             image_transformations = tv.transforms.Compose(
                 [
                     tv.transforms.RandomAffine(
-                        degrees=180, 
-                        translate=(0.1, 0.1), 
-                        scale=(0.9, 1.1), 
-                        shear=5
+                        degrees=180, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=5
                     ),
                     tv.transforms.ToTensor(),
                     tv.transforms.Resize(self.image_size, antialias=True),
@@ -155,53 +157,62 @@ class ProstateCancerDataset(ChaimeleonData):
             )
         else:
             image_transformations = tv.transforms.Compose(
-                [tv.transforms.ToTensor(), tv.transforms.Resize(self.image_size, antialias=True)]
+                [
+                    tv.transforms.ToTensor(),
+                    tv.transforms.Resize(self.image_size, antialias=True),
+                ]
             )
         self.image_transformations = image_transformations
         return image_transformations
-    
+
     def get_metadata_details(self):
-        metadata_details = defaultdict(lambda: {'values': []})
+        metadata_details = defaultdict(lambda: {"values": []})
         for case, case_data in self.raw_cases.items():
             for key, value in case_data["metadata"].items():
-                metadata_details[key]['values'].append(value)
+                metadata_details[key]["values"].append(value)
 
         for details in metadata_details.values():
-            details['max'] = max(details['values'])
-            details['min'] = min(details['values'])
-            details['length'] = len(details['values'])
-            values = details['values']
+            details["max"] = max(details["values"])
+            details["min"] = min(details["values"])
+            details["length"] = len(details["values"])
+            values = details["values"]
             unique_values = set(values)
             sorted_values = list(unique_values)
             sorted_values.sort()
-            details['sorted_values'] = sorted_values
+            details["sorted_values"] = sorted_values
 
         self.metadata_details = metadata_details
         return metadata_details
 
     def normalize_metadata(self, raw_metadata):
-        all_encoded_metadata = np.zeros((0,1))
+        all_encoded_metadata = np.zeros((0, 1))
         for key in self.categorical_metadata:
             current_value = raw_metadata[key]
-            num_possible_values = len(self.metadata_details[key]['sorted_values'])
-            encoded_location = self.metadata_details[key]['sorted_values'].index(current_value)
-            encoded_metadata = np.zeros((num_possible_values,1))
+            num_possible_values = len(self.metadata_details[key]["sorted_values"])
+            encoded_location = self.metadata_details[key]["sorted_values"].index(
+                current_value
+            )
+            encoded_metadata = np.zeros((num_possible_values, 1))
             encoded_metadata[encoded_location] = 1
-            all_encoded_metadata = np.concatenate((all_encoded_metadata, encoded_metadata), axis=0)
+            all_encoded_metadata = np.concatenate(
+                (all_encoded_metadata, encoded_metadata), axis=0
+            )
         for key in self.numerical_metadata:
             current_value = raw_metadata[key]
-            max_value = self.metadata_details[key]['max']
-            min_value = self.metadata_details[key]['min']
+            max_value = self.metadata_details[key]["max"]
+            min_value = self.metadata_details[key]["min"]
             normalized_value = (current_value - min_value) / (max_value - min_value)
             normalized_value = np.array([[normalized_value]])
-            all_encoded_metadata = np.concatenate((all_encoded_metadata, normalized_value), axis=0)
+            all_encoded_metadata = np.concatenate(
+                (all_encoded_metadata, normalized_value), axis=0
+            )
         return all_encoded_metadata
 
     def normalize_ground_truth(self, raw_ground_truth):
-        normalized_ground_truth = np.zeros((2,1))
-        if raw_ground_truth == 'Low':
+        normalized_ground_truth = np.zeros((2, 1))
+        if raw_ground_truth == "Low":
             normalized_ground_truth[0] = 1
-        elif raw_ground_truth == 'High':
+        elif raw_ground_truth == "High":
             normalized_ground_truth[1] = 1
         else:
             raise ValueError('Ground truth must be either "Low" or "High"')
@@ -224,8 +235,14 @@ class LungCancerDataset(ChaimeleonData):
     def __init__(self, data_directory, split_type="train", random_seed=20380119):
         super().__init__(data_directory)
         self.split_type = split_type
-        self.split_keys = super().keys_by_split[split_type]
-        self.raw_cases = super().raw_cases
+        self.split_keys = self.keys_by_split[split_type]
+        self.categorical_metadata = [
+            "gender",
+            "smoking_status",
+        ]
+        self.numerical_metadata = ["age"]
+        self.image_size = (224, 224)
+        self.get_metadata_details()
         self.define_image_transformations(split_type)
         self.prepare_dataset()
 
@@ -248,7 +265,6 @@ class LungCancerDataset(ChaimeleonData):
                 }
             )
         self.prepared_cases = prepared_cases
-        self.dataset_df = pd.DataFrame.from_dict(self.prepared_cases, orient="index")
 
     def define_image_transformations(self, split_type):
         if split_type == "train":
@@ -258,27 +274,73 @@ class LungCancerDataset(ChaimeleonData):
                         degrees=180, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=5
                     ),
                     tv.transforms.ToTensor(),
-                    tv.transforms.Resize(self.image_size),
+                    tv.transforms.Resize(self.image_size, antialias=True),
                 ]
             )
         else:
             image_transformations = tv.transforms.Compose(
-                [tv.transforms.ToTensor(), tv.transforms.Resize(self.image_size)]
+                [
+                    tv.transforms.ToTensor(),
+                    tv.transforms.Resize(self.image_size, antialias=True),
+                ]
             )
         self.image_transformations = image_transformations
         return image_transformations
 
+    def get_metadata_details(self):
+        metadata_details = defaultdict(lambda: {"values": []})
+        for case, case_data in self.raw_cases.items():
+            for key, value in case_data["metadata"].items():
+                metadata_details[key]["values"].append(value)
+
+        for details in metadata_details.values():
+            details["max"] = max(details["values"])
+            details["min"] = min(details["values"])
+            details["length"] = len(details["values"])
+            values = details["values"]
+            unique_values = set(values)
+            sorted_values = list(unique_values)
+            sorted_values.sort()
+            details["sorted_values"] = sorted_values
+
+        self.metadata_details = metadata_details
+        return metadata_details
+
     def normalize_metadata(self, raw_metadata):
-        pass
+        all_encoded_metadata = np.zeros((0, 1))
+        for key in self.categorical_metadata:
+            current_value = raw_metadata[key]
+            num_possible_values = len(self.metadata_details[key]["sorted_values"])
+            encoded_location = self.metadata_details[key]["sorted_values"].index(
+                current_value
+            )
+            encoded_metadata = np.zeros((num_possible_values, 1))
+            encoded_metadata[encoded_location] = 1
+            all_encoded_metadata = np.concatenate(
+                (all_encoded_metadata, encoded_metadata), axis=0
+            )
+        for key in self.numerical_metadata:
+            current_value = raw_metadata[key]
+            max_value = self.metadata_details[key]["max"]
+            min_value = self.metadata_details[key]["min"]
+            normalized_value = (current_value - min_value) / (max_value - min_value)
+            normalized_value = np.array([[normalized_value]])
+            all_encoded_metadata = np.concatenate(
+                (all_encoded_metadata, normalized_value), axis=0
+            )
+        return all_encoded_metadata
 
     def normalize_ground_truth(self, raw_ground_truth):
-        pass
+        normalized_ground_truth = np.zeros((1, 1))
+        normalized_ground_truth[0] = raw_ground_truth['pfs']
+        return normalized_ground_truth
 
     def __getitem__(self, idx):
-        current_case = self.prepared_cases[idx]
-        current_case_image = current_case["image"]
+        # import pudb; pudb.set_trace()
+        current_case = list(self.prepared_cases[idx].values())[0]
+        current_case_image = Image.fromarray(np.asarray(current_case["image"]))
         current_metadata = current_case["metadata"]
-        current_ground_truth = current_case["ground_truth"]
+        current_ground_truth = np.squeeze(current_case["ground_truth"])
         return (
             self.image_transformations(current_case_image),
             torch.FloatTensor(current_metadata),
