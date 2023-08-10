@@ -295,4 +295,4 @@ class LungMetadataModel(nn.Module):
 
         out = self.fc7(out)
 
-        return out.mean(dim=1)
+        return out.sum(dim=1)

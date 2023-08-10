@@ -1,4 +1,5 @@
 import torch
+from sklearn.metrics import roc_auc_score, confusion_matrix, balanced_accuracy_score
 from library.datasets import ProstateCancerDataset, LungCancerDataset
 from library.models import (
     ProstateImageModel,
@@ -16,6 +17,18 @@ from library.train import (
     LUNG_LOSS,
 )
 
+def prostate_scoring_function(targets, outputs, preds):
+    """
+    Creates the scoring for the Prostate dataset as defined in challenge
+    """
+    auc = roc_auc_score(targets, outputs)
+    tn, fp, fn, tp = confusion_matrix(targets, preds).ravel()
+    sensitivity = tp / (tp + fn)
+    specificity = tn / (tn + fp)
+    balanced_accuracy = balanced_accuracy_score(targets, preds)
+    score = (0.4*auc) + (0.2*sensitivity) + (0.2*specificity) + (0.2*balanced_accuracy)
+    return score
+
 
 def main(data_directory: str, train: bool = False, cancer: str = None):
     if train and cancer == 'prostate':
@@ -27,18 +40,18 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         metadata_model = ProstateMetadataModel()
 
         device = get_device()
-        train_loader = create_dataloader(train_dataset, batch_size=256)
-        val_loader = create_dataloader(val_dataset, batch_size=256)
+        train_loader = create_dataloader(train_dataset, batch_size=144)
+        val_loader = create_dataloader(val_dataset, batch_size=144)
         optimizer = create_optimizer(image_model)
 
-        num_epochs = 50
+        num_epochs = 250
 
         print(
             f"\n######## Training Image Model - {get_number_of_parameters(image_model)} params ########\n"
         )
 
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="max", factor=0.5, patience=4, verbose=True
+            optimizer, mode="max", factor=0.5, patience=10, verbose=True
         )
         ProstateImageTrainer = Trainer(
             image_model,
@@ -47,6 +60,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             PROSTATE_LOSS,
             optimizer,
             device,
+            evaluation_function=prostate_scoring_function,
             scheduler=scheduler,
         )
         ProstateImageTrainer.train(num_epochs)
@@ -62,7 +76,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
 
         metadata_optimizer = create_optimizer(metadata_model)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            metadata_optimizer, mode="max", factor=0.5, patience=4, verbose=True
+            metadata_optimizer, mode="max", factor=0.5, patience=10, verbose=True
         )
         ProstateMetadataTrainer = Trainer(
             metadata_model,
@@ -71,6 +85,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             PROSTATE_LOSS,
             metadata_optimizer,
             device,
+            evaluation_function=prostate_scoring_function,
             scheduler=scheduler,
         )
         ProstateMetadataTrainer.train(num_epochs)
@@ -87,7 +102,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
 
         combo_optimizer = create_optimizer(combo_model)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            combo_optimizer, mode="max", factor=0.5, patience=4, verbose=True
+            combo_optimizer, mode="max", factor=0.5, patience=10, verbose=True
         )
         ProstateCombinedTrainer = Trainer(
             combo_model,
@@ -96,6 +111,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             PROSTATE_LOSS,
             combo_optimizer,
             device,
+            evaluation_function=prostate_scoring_function,
             scheduler=scheduler,
         )
         ProstateCombinedTrainer.train(num_epochs)
@@ -113,18 +129,18 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         metadata_model = LungMetadataModel()
 
         device = get_device()
-        train_loader = create_dataloader(train_dataset, batch_size=16)
-        val_loader = create_dataloader(val_dataset, batch_size=16)
+        train_loader = create_dataloader(train_dataset, batch_size=144)
+        val_loader = create_dataloader(val_dataset, batch_size=144)
 
-        num_epochs = 1000
+        num_epochs = 50
 
         print(
             f"\n######## Training Metadata Model - {get_number_of_parameters(metadata_model)} ########\n"
         )
 
-        metadata_optimizer = create_optimizer(metadata_model, lr=0.05)
+        metadata_optimizer = create_optimizer(metadata_model, lr=0.005)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            metadata_optimizer, mode="min", factor=0.5, patience=20, verbose=True
+            metadata_optimizer, mode="min", factor=0.5, patience=10, verbose=True
         )
 
         LungMetadataModelTrainer = Trainer(
