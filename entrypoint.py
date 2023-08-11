@@ -27,7 +27,15 @@ def prostate_scoring_function(targets, outputs, preds):
     specificity = tn / (tn + fp)
     balanced_accuracy = balanced_accuracy_score(targets, preds)
     score = (0.4*auc) + (0.2*sensitivity) + (0.2*specificity) + (0.2*balanced_accuracy)
+    # print(f"\t### AUC: {auc:.3f}, balanced_accuracy: {balanced_accuracy:.3f}, sensitivity: {sensitivity:.3f}, specificity: {specificity:.3f}")
     return score
+
+
+def lung_scoring_function(targets, outputs, preds):
+    """
+    creates scoring function for the Lung dataset as defined in challenge
+    """
+
 
 
 def main(data_directory: str, train: bool = False, cancer: str = None):
@@ -44,7 +52,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         val_loader = create_dataloader(val_dataset, batch_size=144)
         optimizer = create_optimizer(image_model)
 
-        num_epochs = 250
+        num_epochs = 30
 
         print(
             f"\n######## Training Image Model - {get_number_of_parameters(image_model)} params ########\n"
@@ -69,6 +77,8 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         )
         # ProstateImageTrainer.plot_acc()
         # ProstateImageTrainer.plot_loss()
+        del ProstateImageTrainer
+        del image_model
 
         print(
             f"\n######## Training Metadata Model - {get_number_of_parameters(metadata_model)} ########\n"
@@ -94,7 +104,9 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         )
         # ProstateMetadataTrainer.plot_acc()
         # ProstateMetadataTrainer.plot_loss()
-
+        del ProstateMetadataTrainer
+        del metadata_model
+        num_epochs = 75
         combo_model = ProstateCombinedModel()
         print(
             f"\n######## Training Combined Model - {get_number_of_parameters(combo_model)} ########\n"

@@ -72,13 +72,16 @@ class Trainer:
             self.val_epoch()
             if self.loss_fn is PROSTATE_LOSS:
                 improved_val_acc = self.val_acc[-1] > self.best_val_acc
-                self.best_val_acc = self.val_acc[-1]
+                if improved_val_acc:
+                    self.best_val_acc = self.val_acc[-1]
             elif self.loss_fn is LUNG_LOSS:
                 improved_val_acc = self.val_acc[-1] < self.best_val_acc
-                self.best_val_acc = self.val_acc[-1]
+                if improved_val_acc:
+                    self.best_val_acc = self.val_acc[-1]
             if self.eval_function is not None:
                 improved_score = self.val_score[-1] > self.best_score
-                self.best_score = self.val_score[-1]
+                if improved_score:
+                    self.best_score = self.val_score[-1]
             else:
                 improved_score = False
             if improved_val_acc or improved_score:
@@ -156,11 +159,11 @@ class Trainer:
                     val_acc += (
                         pred.eq(targets.argmax(dim=1, keepdim=True).view_as(pred)).sum().item()
                     )
-                    targets,output, pred = targets.argmax(dim=1, keepdim=True).to('cpu'), output.to('cpu'), pred.to('cpu')
+                    targets,output, pred = targets.argmax(dim=1, keepdim=True).to('cpu'), torch.nn.functional.sigmoid(output).to('cpu'), pred.to('cpu')
                     # import pudb; pudb.set_trace()
                     epoch_targets.extend([i.item() for i in targets])
                     epoch_preds.extend([i.item() for i in pred])
-                    epoch_outputs.extend([output[k][i].item() for k, i in enumerate(targets)])
+                    epoch_outputs.extend([output[k][1].item() for k, i in enumerate(targets)])
                 elif self.loss_fn is LUNG_LOSS:
                     val_acc += sum([(((i.item()-k.item())**2)**0.5) for i, k in zip(output, targets)])
                 
