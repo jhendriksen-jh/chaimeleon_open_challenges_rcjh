@@ -267,8 +267,8 @@ class LungMetadataModel(nn.Module):
         self.fc3 = nn.Linear(in_features=32, out_features=256)
         self.fc4 = nn.Linear(in_features=256, out_features=512)
         self.fc5 = nn.Linear(in_features=512, out_features=1024)
-        self.fc6 = nn.Linear(in_features=1024, out_features=256)
-        self.fc7 = nn.Linear(in_features=256, out_features=64)
+        self.fc6 = nn.Linear(in_features=1024, out_features=512)
+        self.fc7 = nn.Linear(in_features=512, out_features=200)
         self.drop = nn.Dropout(p=0.1)
 
     def forward(self, x):
@@ -295,4 +295,4 @@ class LungMetadataModel(nn.Module):
 
         out = self.fc7(out)
 
-        return out.sum(dim=1)
+        return out

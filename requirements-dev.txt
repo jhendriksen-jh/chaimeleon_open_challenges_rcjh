@@ -6,3 +6,4 @@ matplotlib
 matplotlib-inline
 pyqt5
 scikit-learn
+scikit-survival

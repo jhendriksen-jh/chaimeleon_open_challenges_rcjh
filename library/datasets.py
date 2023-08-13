@@ -236,6 +236,7 @@ class LungCancerDataset(ChaimeleonData):
         super().__init__(data_directory)
         self.split_type = split_type
         self.split_keys = self.keys_by_split[split_type]
+        self.days_per_gt_bucket = 0.5
         self.categorical_metadata = [
             "gender",
             "smoking_status",
@@ -261,6 +262,7 @@ class LungCancerDataset(ChaimeleonData):
                         "image": raw_image,
                         "metadata": prepped_metadata,
                         "ground_truth": normalized_ground_truth,
+                        "survival": np.array([raw_case['ground_truth']['progression'], raw_case['ground_truth']['pfs']]),
                     }
                 }
             )
@@ -331,9 +333,19 @@ class LungCancerDataset(ChaimeleonData):
         return all_encoded_metadata
 
     def normalize_ground_truth(self, raw_ground_truth):
-        normalized_ground_truth = np.zeros((1, 1))
-        normalized_ground_truth[0] = raw_ground_truth['pfs']
+        normalized_ground_truth = np.zeros((200, 1))
+        normalized_gt_bucket = round(raw_ground_truth['pfs'] / self.days_per_gt_bucket)
+        if raw_ground_truth['progression']:
+            normalized_ground_truth[normalized_gt_bucket][0] = 1
+        else:
+            normalized_ground_truth[normalized_gt_bucket][0] = 0
         return normalized_ground_truth
+
+    def get_all_ground_truth(self):
+        all_ground_truth = []
+        for case in self.split_keys:
+            all_ground_truth.append([self.raw_cases[case]['ground_truth']["progression"],self.raw_cases[case]["ground_truth"]["pfs"]])
+        return all_ground_truth
 
     def __getitem__(self, idx):
         # import pudb; pudb.set_trace()
@@ -341,8 +353,9 @@ class LungCancerDataset(ChaimeleonData):
         current_case_image = Image.fromarray(np.asarray(current_case["image"]))
         current_metadata = current_case["metadata"]
         current_ground_truth = np.squeeze(current_case["ground_truth"])
+        current_survival = current_case["survival"]
         return (
             self.image_transformations(current_case_image),
             torch.FloatTensor(current_metadata),
-            torch.FloatTensor(current_ground_truth),
+            (torch.FloatTensor(current_ground_truth), current_survival),
         )

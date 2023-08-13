@@ -1,5 +1,8 @@
 import torch
+import numpy as np
+from functools import partial
 from sklearn.metrics import roc_auc_score, confusion_matrix, balanced_accuracy_score
+from sksurv.metrics import cumulative_dynamic_auc, concordance_index_ipcw
 from library.datasets import ProstateCancerDataset, LungCancerDataset
 from library.models import (
     ProstateImageModel,
@@ -31,11 +34,36 @@ def prostate_scoring_function(targets, outputs, preds):
     return score
 
 
-def lung_scoring_function(targets, outputs, preds):
+def lung_scoring_function(trains, days_per_bucket, targets, outputs):
     """
     creates scoring function for the Lung dataset as defined in challenge
     """
+    targets = np.array(targets)
+    min_time = np.min(targets.T[1])
+    max_time = np.max(targets.T[1])
+    min_index = int(min_time/days_per_bucket)
+    max_index = int(max_time/days_per_bucket)
 
+    truncated_outputs = [i[min_index:max_index] for i in outputs]
+    times = np.arange(min_time, max_time-days_per_bucket, days_per_bucket)
+    targets = np.array([(i[0], i[1]) for i in targets], dtype=[('event', 'bool'), ('time', 'float')])
+    trains = np.array([(i[0], i[1]) for i in trains], dtype=[('event', 'bool'), ('time', 'float')])
+
+    cum_auc = cumulative_dynamic_auc(trains, targets, truncated_outputs, times)
+    time_auc = cum_auc[1]
+
+    estimates_at_midpoint = [i[:int(max_index/2)].sum() for i in outputs]
+    min_estimate_at_midpoint = min(estimates_at_midpoint)
+    max_estimate_at_midpoint = max(estimates_at_midpoint)
+
+    concordance = concordance_index_ipcw(trains, targets, estimates_at_midpoint)
+    c_index = concordance[0]
+
+    score = (0.5*time_auc) + (0.5*c_index)
+
+    # print(f"\t### Time AUC: {time_auc:.3f}, c_index: {c_index:.3f}, min_estimate_at_midpoint: {min_estimate_at_midpoint:.3f}, max_estimate_at_midpoint: {max_estimate_at_midpoint:.3f}")
+
+    return score 
 
 
 def main(data_directory: str, train: bool = False, cancer: str = None):
@@ -144,7 +172,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         train_loader = create_dataloader(train_dataset, batch_size=144)
         val_loader = create_dataloader(val_dataset, batch_size=144)
 
-        num_epochs = 50
+        num_epochs = 40
 
         print(
             f"\n######## Training Metadata Model - {get_number_of_parameters(metadata_model)} ########\n"
@@ -152,8 +180,10 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
 
         metadata_optimizer = create_optimizer(metadata_model, lr=0.005)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            metadata_optimizer, mode="min", factor=0.5, patience=10, verbose=True
+            metadata_optimizer, mode="max", factor=0.5, patience=6, verbose=True
         )
+
+        lung_score_generator = partial(lung_scoring_function, train_dataset.get_all_ground_truth(), train_dataset.days_per_gt_bucket)
 
         LungMetadataModelTrainer = Trainer(
             metadata_model,
@@ -162,6 +192,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             LUNG_LOSS,
             metadata_optimizer,
             device,
+            evaluation_function=lung_score_generator,
             scheduler=scheduler,
         )
 
