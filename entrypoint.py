@@ -10,6 +10,8 @@ from library.models import (
     ProstateCombinedModel,
     get_number_of_parameters,
     LungMetadataModel,
+    LungImageModel,
+    LungCombinedModel,
 )
 from library.train import (
     Trainer,
@@ -20,6 +22,7 @@ from library.train import (
     LUNG_LOSS,
 )
 
+
 def prostate_scoring_function(targets, outputs, preds):
     """
     Creates the scoring for the Prostate dataset as defined in challenge
@@ -29,7 +32,12 @@ def prostate_scoring_function(targets, outputs, preds):
     sensitivity = tp / (tp + fn)
     specificity = tn / (tn + fp)
     balanced_accuracy = balanced_accuracy_score(targets, preds)
-    score = (0.4*auc) + (0.2*sensitivity) + (0.2*specificity) + (0.2*balanced_accuracy)
+    score = (
+        (0.4 * auc)
+        + (0.2 * sensitivity)
+        + (0.2 * specificity)
+        + (0.2 * balanced_accuracy)
+    )
     # print(f"\t### AUC: {auc:.3f}, balanced_accuracy: {balanced_accuracy:.3f}, sensitivity: {sensitivity:.3f}, specificity: {specificity:.3f}")
     return score
 
@@ -41,34 +49,37 @@ def lung_scoring_function(trains, days_per_bucket, targets, outputs):
     targets = np.array(targets)
     min_time = np.min(targets.T[1])
     max_time = np.max(targets.T[1])
-    min_index = int(min_time/days_per_bucket)
-    max_index = int(max_time/days_per_bucket)
+    min_index = int(min_time / days_per_bucket)
+    max_index = int(max_time / days_per_bucket)
 
     truncated_outputs = [i[min_index:max_index] for i in outputs]
-    times = np.arange(min_time, max_time-days_per_bucket, days_per_bucket)
-    targets = np.array([(i[0], i[1]) for i in targets], dtype=[('event', 'bool'), ('time', 'float')])
-    trains = np.array([(i[0], i[1]) for i in trains], dtype=[('event', 'bool'), ('time', 'float')])
+    times = np.arange(min_time, max_time - days_per_bucket, days_per_bucket)
+    targets = np.array(
+        [(i[0], i[1]) for i in targets], dtype=[("event", "bool"), ("time", "float")]
+    )
+    trains = np.array(
+        [(i[0], i[1]) for i in trains], dtype=[("event", "bool"), ("time", "float")]
+    )
 
     cum_auc = cumulative_dynamic_auc(trains, targets, truncated_outputs, times)
     time_auc = cum_auc[1]
 
-    estimates_at_midpoint = [i[:int(max_index/2)].sum() for i in outputs]
+    estimates_at_midpoint = [i[: int(max_index / 2)].sum() for i in outputs]
     min_estimate_at_midpoint = min(estimates_at_midpoint)
     max_estimate_at_midpoint = max(estimates_at_midpoint)
 
     concordance = concordance_index_ipcw(trains, targets, estimates_at_midpoint)
     c_index = concordance[0]
 
-    score = (0.5*time_auc) + (0.5*c_index)
+    score = (0.5 * time_auc) + (0.5 * c_index)
 
     # print(f"\t### Time AUC: {time_auc:.3f}, c_index: {c_index:.3f}, min_estimate_at_midpoint: {min_estimate_at_midpoint:.3f}, max_estimate_at_midpoint: {max_estimate_at_midpoint:.3f}")
 
-    return score 
+    return score
 
 
 def main(data_directory: str, train: bool = False, cancer: str = None):
-    if train and cancer == 'prostate':
-        # import pudb; pudb.set_trace()
+    if train and cancer == "prostate":
         train_dataset = ProstateCancerDataset(data_directory)
         val_dataset = ProstateCancerDataset(data_directory, split_type="val")
 
@@ -80,7 +91,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         val_loader = create_dataloader(val_dataset, batch_size=144)
         optimizer = create_optimizer(image_model)
 
-        num_epochs = 30
+        num_epochs = 10
 
         print(
             f"\n######## Training Image Model - {get_number_of_parameters(image_model)} params ########\n"
@@ -134,7 +145,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         # ProstateMetadataTrainer.plot_loss()
         del ProstateMetadataTrainer
         del metadata_model
-        num_epochs = 75
+        num_epochs = 15
         combo_model = ProstateCombinedModel()
         print(
             f"\n######## Training Combined Model - {get_number_of_parameters(combo_model)} ########\n"
@@ -160,33 +171,36 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         )
         # ProstateCombinedTrainer.plot_acc()
         # ProstateCombinedTrainer.plot_loss()
-    
-    elif train and cancer == 'lung':
-        # import pudb; pudb.set_trace()
+
+    elif train and cancer == "lung":
         train_dataset = LungCancerDataset(data_directory)
         val_dataset = LungCancerDataset(data_directory, split_type="val")
 
-        metadata_model = LungMetadataModel()
+        lung_model = LungCombinedModel()
 
         device = get_device()
         train_loader = create_dataloader(train_dataset, batch_size=144)
         val_loader = create_dataloader(val_dataset, batch_size=144)
 
-        num_epochs = 40
+        num_epochs = 75
 
         print(
-            f"\n######## Training Metadata Model - {get_number_of_parameters(metadata_model)} ########\n"
+            f"\n######## Training Lung Model - {get_number_of_parameters(lung_model)} ########\n"
         )
 
-        metadata_optimizer = create_optimizer(metadata_model, lr=0.005)
+        metadata_optimizer = create_optimizer(lung_model, lr=0.001)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            metadata_optimizer, mode="max", factor=0.5, patience=6, verbose=True
+            metadata_optimizer, mode="max", factor=0.25, patience=10, verbose=True
         )
 
-        lung_score_generator = partial(lung_scoring_function, train_dataset.get_all_ground_truth(), train_dataset.days_per_gt_bucket)
+        lung_score_generator = partial(
+            lung_scoring_function,
+            train_dataset.get_all_ground_truth(),
+            train_dataset.days_per_gt_bucket,
+        )
 
-        LungMetadataModelTrainer = Trainer(
-            metadata_model,
+        LungModelTrainer = Trainer(
+            lung_model,
             train_loader,
             val_loader,
             LUNG_LOSS,
@@ -196,19 +210,12 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             scheduler=scheduler,
         )
 
-        LungMetadataModelTrainer.train(num_epochs)
+        LungModelTrainer.train(num_epochs)
         print(
-            f"Training averaged {sum(LungMetadataModelTrainer.train_time)/num_epochs:.2f}s per epoch"
+            f"Training averaged {sum(LungModelTrainer.train_time)/num_epochs:.2f}s per epoch"
         )
-        LungMetadataModelTrainer.plot_loss()
-        LungMetadataModelTrainer.plot_acc()
-        
-
-
-
-
-
-
+        LungModelTrainer.plot_loss()
+        LungModelTrainer.plot_acc()
 
 
 if __name__ == "__main__":
@@ -228,4 +235,8 @@ if __name__ == "__main__":
         choices=["prostate", "lung"],
     )
     input_args = parser.parse_args()
-    main(data_directory=input_args.data_dir, train=input_args.train, cancer=input_args.cancer)
+    main(
+        data_directory=input_args.data_dir,
+        train=input_args.train,
+        cancer=input_args.cancer,
+    )

@@ -219,7 +219,6 @@ class ProstateCancerDataset(ChaimeleonData):
         return normalized_ground_truth
 
     def __getitem__(self, idx):
-        # import pudb; pudb.set_trace()
         current_case = list(self.prepared_cases[idx].values())[0]
         current_case_image = Image.fromarray(np.asarray(current_case["image"]))
         current_metadata = current_case["metadata"]
@@ -262,7 +261,12 @@ class LungCancerDataset(ChaimeleonData):
                         "image": raw_image,
                         "metadata": prepped_metadata,
                         "ground_truth": normalized_ground_truth,
-                        "survival": np.array([raw_case['ground_truth']['progression'], raw_case['ground_truth']['pfs']]),
+                        "survival": np.array(
+                            [
+                                raw_case["ground_truth"]["progression"],
+                                raw_case["ground_truth"]["pfs"],
+                            ]
+                        ),
                     }
                 }
             )
@@ -334,8 +338,8 @@ class LungCancerDataset(ChaimeleonData):
 
     def normalize_ground_truth(self, raw_ground_truth):
         normalized_ground_truth = np.zeros((200, 1))
-        normalized_gt_bucket = round(raw_ground_truth['pfs'] / self.days_per_gt_bucket)
-        if raw_ground_truth['progression']:
+        normalized_gt_bucket = round(raw_ground_truth["pfs"] / self.days_per_gt_bucket)
+        if raw_ground_truth["progression"]:
             normalized_ground_truth[normalized_gt_bucket][0] = 1
         else:
             normalized_ground_truth[normalized_gt_bucket][0] = 0
@@ -344,11 +348,15 @@ class LungCancerDataset(ChaimeleonData):
     def get_all_ground_truth(self):
         all_ground_truth = []
         for case in self.split_keys:
-            all_ground_truth.append([self.raw_cases[case]['ground_truth']["progression"],self.raw_cases[case]["ground_truth"]["pfs"]])
+            all_ground_truth.append(
+                [
+                    self.raw_cases[case]["ground_truth"]["progression"],
+                    self.raw_cases[case]["ground_truth"]["pfs"],
+                ]
+            )
         return all_ground_truth
 
     def __getitem__(self, idx):
-        # import pudb; pudb.set_trace()
         current_case = list(self.prepared_cases[idx].values())[0]
         current_case_image = Image.fromarray(np.asarray(current_case["image"]))
         current_metadata = current_case["metadata"]
