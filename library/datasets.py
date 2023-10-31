@@ -70,13 +70,25 @@ class ChaimeleonData:
     def load_image_file(self, image_file):
         nifti_image = nib.load(image_file)
         nii_data = nifti_image.get_fdata()
+        # uncomment to work with models from models.py
+        # nii_data = np.mean(nii_data, axis=2)
+        nii_chunks = []
+        for k in range(3):
+            u = int(np.ceil((k+1)*(nii_data.shape[-1]/3)))
+            l = int(np.floor((k)*(nii_data.shape[-1]/3)))
+            nii_chunk = np.mean(nii_data[:,:,l:u], axis=2)
+            nii_chunk = ((nii_chunk - nii_chunk.min()) / (nii_chunk.max() - nii_chunk.min()))*255
+            nii_chunks.append(nii_chunk)
+        nii_chunked_image = np.array(nii_chunks).astype(np.uint8)
+        nii_chunked_image = np.transpose(nii_chunked_image, (1,2,0))
+
         # nii_affine = nifti_image.get_affine()
         # nii_header = nifti_image.get_header()
-        self.image_arrays.append(nii_data)
-        return nii_data
+        self.image_arrays.append(nii_chunked_image)
+        return nii_chunked_image
 
     def get_dataset_splits(
-        self, train_percentage=0.75, val_percentage=0.15, test_percentage=0.1
+        self, train_percentage=0.85, val_percentage=0.15, test_percentage=0.0
     ):
         assert (
             train_percentage + val_percentage + test_percentage == 1
@@ -112,14 +124,15 @@ class ProstateCancerDataset(ChaimeleonData):
         self.split_type = split_type
         self.split_keys = self.keys_by_split[split_type]
         # self.categorical_metadata = ['histology_type', 'pirads', 'neural_invasion', 'vascular_invasion', 'lymphatic_invasion']
-        self.categorical_metadata = [
-            "histology_type",
-            "neural_invasion",
-            "vascular_invasion",
-            "lymphatic_invasion",
-        ]
+        # self.categorical_metadata = [
+        #     "histology_type",
+        #     "neural_invasion",
+        #     "vascular_invasion",
+        #     "lymphatic_invasion",
+        # ]
+        self.categorical_metadata = []
         self.numerical_metadata = ["age", "psa"]
-        self.image_size = (224, 224)
+        self.image_size = self.image_arrays[0].shape[:-1]
         self.get_metadata_details()
         self.define_image_transformations(split_type)
         self.prepare_dataset()
@@ -220,7 +233,7 @@ class ProstateCancerDataset(ChaimeleonData):
 
     def __getitem__(self, idx):
         current_case = list(self.prepared_cases[idx].values())[0]
-        current_case_image = Image.fromarray(np.asarray(current_case["image"]))
+        current_case_image = Image.fromarray(current_case["image"])
         current_metadata = current_case["metadata"]
         current_ground_truth = np.squeeze(current_case["ground_truth"])
         return (
