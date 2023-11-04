@@ -16,9 +16,10 @@ from PIL import Image
 
 
 class ChaimeleonData:
-    def __init__(self, data_directory, random_seed=2038):
+    def __init__(self, data_directory, input_slice_count: int = 1, random_seed=2038):
         self.random_seed = random_seed
         self.data_directory = data_directory
+        self.input_slice_count = input_slice_count
         self.image_arrays = []
         self.raw_cases = {}
         self.prepared_cases = []
@@ -70,20 +71,19 @@ class ChaimeleonData:
     def load_image_file(self, image_file):
         nifti_image = nib.load(image_file)
         nii_data = nifti_image.get_fdata()
-        # uncomment to work with models from models.py
-        # nii_data = np.mean(nii_data, axis=2)
-        nii_chunks = []
-        for k in range(3):
-            u = int(np.ceil((k+1)*(nii_data.shape[-1]/3)))
-            l = int(np.floor((k)*(nii_data.shape[-1]/3)))
-            nii_chunk = np.mean(nii_data[:,:,l:u], axis=2)
-            nii_chunk = ((nii_chunk - nii_chunk.min()) / (nii_chunk.max() - nii_chunk.min()))*255
-            nii_chunks.append(nii_chunk)
-        nii_chunked_image = np.array(nii_chunks).astype(np.uint8)
-        nii_chunked_image = np.transpose(nii_chunked_image, (1,2,0))
-
         # nii_affine = nifti_image.get_affine()
         # nii_header = nifti_image.get_header()
+        nii_chunks = []
+        for k in range(self.input_slice_count):
+            u = int(np.ceil((k + 1) * (nii_data.shape[-1] / self.input_slice_count)))
+            l = int(np.floor((k) * (nii_data.shape[-1] / self.input_slice_count)))
+            nii_chunk = np.mean(nii_data[:, :, l:u], axis=2)
+            nii_chunk = (
+                (nii_chunk - nii_chunk.min()) / (nii_chunk.max() - nii_chunk.min())
+            ) * 255
+            nii_chunks.append(nii_chunk)
+        nii_chunked_image = np.array(nii_chunks).astype(np.uint8)
+        nii_chunked_image = np.transpose(nii_chunked_image, (1, 2, 0))
         self.image_arrays.append(nii_chunked_image)
         return nii_chunked_image
 
@@ -119,8 +119,16 @@ class ChaimeleonData:
 
 
 class ProstateCancerDataset(ChaimeleonData):
-    def __init__(self, data_directory, split_type="train", random_seed=20380119):
-        super().__init__(data_directory)
+    def __init__(
+        self,
+        data_directory,
+        split_type="train",
+        random_seed=20380119,
+        input_slice_count: int = 1,
+    ):
+        super().__init__(
+            data_directory, input_slice_count=input_slice_count, random_seed=random_seed
+        )
         self.split_type = split_type
         self.split_keys = self.keys_by_split[split_type]
         # self.categorical_metadata = ['histology_type', 'pirads', 'neural_invasion', 'vascular_invasion', 'lymphatic_invasion']
@@ -133,6 +141,7 @@ class ProstateCancerDataset(ChaimeleonData):
         self.categorical_metadata = []
         self.numerical_metadata = ["age", "psa"]
         self.image_size = self.image_arrays[0].shape[:-1]
+        self.ground_truth_list = []
         self.get_metadata_details()
         self.define_image_transformations(split_type)
         self.prepare_dataset()
@@ -146,6 +155,7 @@ class ProstateCancerDataset(ChaimeleonData):
             normalized_ground_truth = self.normalize_ground_truth(
                 raw_case["ground_truth"]
             )
+            self.ground_truth_list.append(raw_case["ground_truth"])
             prepared_cases.append(
                 {
                     key: {
@@ -161,10 +171,10 @@ class ProstateCancerDataset(ChaimeleonData):
         if split_type == "train":
             image_transformations = tv.transforms.Compose(
                 [
+                    tv.transforms.ToTensor(),
                     tv.transforms.RandomAffine(
                         degrees=180, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=5
                     ),
-                    tv.transforms.ToTensor(),
                     tv.transforms.Resize(self.image_size, antialias=True),
                 ]
             )
@@ -233,7 +243,7 @@ class ProstateCancerDataset(ChaimeleonData):
 
     def __getitem__(self, idx):
         current_case = list(self.prepared_cases[idx].values())[0]
-        current_case_image = Image.fromarray(current_case["image"])
+        current_case_image = current_case["image"]
         current_metadata = current_case["metadata"]
         current_ground_truth = np.squeeze(current_case["ground_truth"])
         return (
