@@ -90,7 +90,7 @@ class ProstateMetadataModel(nn.Module):
         self.model_data_type = "metadata"
 
         self.relu = nn.ReLU(inplace=True)
-        self.fc1 = nn.Linear(in_features=12, out_features=16)
+        self.fc1 = nn.Linear(in_features=2, out_features=16)
         self.fc2 = nn.Linear(in_features=16, out_features=32)
         self.fc3 = nn.Linear(in_features=32, out_features=128)
         self.fc4 = nn.Linear(in_features=128, out_features=256)
@@ -127,31 +127,35 @@ class ProstateMetadataModel(nn.Module):
 
 
 class ProstateCombinedModel(nn.Module):
-    def __init__(self):
+    def __init__(self, input_slice_count: int):
         super(ProstateCombinedModel, self).__init__()
         self.model_data_type = "both"
 
         self.relu = nn.ReLU(inplace=True)
 
         # metadata layers
-        self.meta_fc1 = nn.Linear(in_features=2, out_features=16)
-        self.meta_fc2 = nn.Linear(in_features=16, out_features=32)
-        self.meta_fc3 = nn.Linear(in_features=32, out_features=128)
+        self.meta_fc1 = nn.Linear(in_features=2, out_features=32)
+        self.meta_fc2 = nn.Linear(in_features=32, out_features=64)
+        self.meta_fc3 = nn.Linear(in_features=64, out_features=128)
         self.meta_fc4 = nn.Linear(in_features=128, out_features=256)
         self.meta_fc5 = nn.Linear(in_features=256, out_features=512)
         # self.meta_fc6 = nn.Linear(in_features = 512, out_features=256)
         # self.meta_fc7 = nn.Linear(in_features = 64, out_features=2)
-        self.meta_drop = nn.Dropout(p=0.1)
+        self.meta_drop = nn.Dropout(p=0.05)
 
         # image layers
         self.image_conv1 = nn.Conv2d(
-            in_channels=1, out_channels=16, kernel_size=7, stride=2, padding=3
+            in_channels=input_slice_count,
+            out_channels=32,
+            kernel_size=7,
+            stride=2,
+            padding=3,
         )  # 256 -> 128
         self.image_conv2 = nn.Conv2d(
-            in_channels=16, out_channels=32, kernel_size=5, stride=1, padding="same"
+            in_channels=32, out_channels=64, kernel_size=5, stride=1, padding="same"
         )  # 128
         self.image_conv3 = nn.Conv2d(
-            in_channels=32, out_channels=64, kernel_size=3, stride=1, padding="same"
+            in_channels=64, out_channels=64, kernel_size=3, stride=1, padding="same"
         )  # 128
         self.image_maxpool2 = nn.MaxPool2d(kernel_size=2)  # 64
         self.image_conv4 = nn.Conv2d(
@@ -168,18 +172,21 @@ class ProstateCombinedModel(nn.Module):
             in_channels=512, out_channels=756, kernel_size=3, stride=2, padding=1
         )  # 5
         self.image_conv8 = nn.Conv2d(
-            in_channels=756, out_channels=1024, kernel_size=3, stride=1, padding="same") # 5
+            in_channels=756, out_channels=1024, kernel_size=3, stride=1, padding="same"
+        )  # 5
         self.image_downpool1 = nn.Conv2d(
-            in_channels=16, out_channels=512, kernel_size=12, stride=12, padding=1
+            in_channels=32, out_channels=512, kernel_size=12, stride=12, padding=1
         )  # 120 -> 15
         self.image_flatten = nn.Flatten()
         self.image_fc1 = nn.Linear(in_features=5 * 5 * 1024, out_features=384)
         self.image_fc2 = nn.Linear(in_features=384, out_features=2)
-        self.image_drop = nn.Dropout(p=0.1)
-        self.image_drop2d = nn.Dropout2d(p=0.05)
+        self.image_drop = nn.Dropout(p=0.05)
+        self.image_drop2d = nn.Dropout2d(p=0.01)
 
         # combo layers
-        self.combo_fc1 = nn.Linear(in_features=2, out_features=256*256)
+        self.combo_fc1 = nn.Linear(
+            in_features=2, out_features=input_slice_count * 256 * 256
+        )
         self.combo_fc2 = nn.Linear(in_features=512, out_features=10 * 10 * 512)
         # self.combo_output = nn.Linear(in_features = 512, out_features=2)
 
