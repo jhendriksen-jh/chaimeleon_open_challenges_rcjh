@@ -173,16 +173,16 @@ class ProstateCancerDataset(ChaimeleonData):
                 [
                     tv.transforms.ToTensor(),
                     tv.transforms.RandomAffine(
-                        degrees=180, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=5
+                        degrees=30, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=5
                     ),
-                    tv.transforms.Resize(self.image_size, antialias=True),
+                    # tv.transforms.Resize(self.image_size, antialias=True),
                 ]
             )
         else:
             image_transformations = tv.transforms.Compose(
                 [
                     tv.transforms.ToTensor(),
-                    tv.transforms.Resize(self.image_size, antialias=True),
+                    # tv.transforms.Resize(self.image_size, antialias=True),
                 ]
             )
         self.image_transformations = image_transformations
