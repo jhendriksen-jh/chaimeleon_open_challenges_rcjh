@@ -10,7 +10,7 @@ PROSTATE_LOSS = torch.nn.BCEWithLogitsLoss(
     reduction="mean", pos_weight=torch.tensor([16], device="cuda")
 )
 # LUNG_LOSS = torch.nn.MSELoss(reduction="mean")
-LUNG_LOSS = torch.nn.MultiLabelSoftMarginLoss(reduction="sum")gi
+LUNG_LOSS = torch.nn.MultiLabelSoftMarginLoss(reduction="sum")
 
 
 def create_optimizer(model, lr=0.01):

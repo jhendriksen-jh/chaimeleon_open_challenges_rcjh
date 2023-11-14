@@ -163,7 +163,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             factor = 0.75
             patience = 60
             training_timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-            training_dir = f"./training_details/metadata_model/{metadata_model.__class__.__name__}/{training_timestamp}/"
+            training_dir = f"./training_details/metadata_model_raw_values/{metadata_model.__class__.__name__}/{training_timestamp}/"
             os.makedirs(training_dir, exist_ok=True)
             metadata_optimizer = create_optimizer(metadata_model)
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -241,7 +241,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
                 print(
                     f"\n######## Training Combined Model {input_slices} slices - {get_number_of_parameters(combo_model):_} ########\n"
                 )
-                training_dir = f"./training_details/combined_model/{combo_model.__class__.__name__}/{training_timestamp}/{input_slices}_slices/"
+                training_dir = f"./training_details/combined_model_raw_metadata/{combo_model.__class__.__name__}/{training_timestamp}/{input_slices}_slices/"
                 os.makedirs(training_dir, exist_ok=True)
                 combo_optimizer = create_optimizer(combo_model, lr=starting_lr)
                 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(

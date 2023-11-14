@@ -226,8 +226,11 @@ class ProstateCancerDataset(ChaimeleonData):
             min_value = self.metadata_details[key]["min"]
             normalized_value = (current_value - min_value) / (max_value - min_value)
             normalized_value = np.array([[normalized_value]])
+            # all_encoded_metadata = np.concatenate(
+            #     (all_encoded_metadata, normalized_value), axis=0
+            # )
             all_encoded_metadata = np.concatenate(
-                (all_encoded_metadata, normalized_value), axis=0
+                (all_encoded_metadata, np.array([[current_value]])), axis=0 # use raw numerical values to better generalize with test data
             )
         return all_encoded_metadata
 
