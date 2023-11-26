@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 # PROSTATE_LOSS = torch.nn.BCEWithLogitsLoss(reduction="mean")
 PROSTATE_LOSS = torch.nn.BCEWithLogitsLoss(
-    reduction="mean", pos_weight=torch.tensor([36 / 9], device="cuda")
+    reduction="mean", pos_weight=torch.tensor([16], device="cuda")
 )
 # LUNG_LOSS = torch.nn.MSELoss(reduction="mean")
 LUNG_LOSS = torch.nn.MultiLabelSoftMarginLoss(reduction="sum")
@@ -218,16 +218,16 @@ class Trainer:
         return self.val_loss, self.val_acc, self.val_time
 
     def plot_loss(self):
-        plt.plot(self.train_loss[3:], label="train_loss")
-        plt.plot(self.val_loss[3:], label="val_loss")
+        plt.plot(self.train_loss[1:], label="train_loss")
+        plt.plot(self.val_loss[1:], label="val_loss")
         plt.title(f"Loss - {self.model.__class__.__name__}")
         plt.legend()
         plt.show()
 
     def plot_acc(self):
-        plt.plot(self.train_acc[3:], label="train_acc")
-        plt.plot(self.val_acc[3:], label="val_acc")
-        plt.plot(self.val_score[3:], label="val_score")
+        plt.plot(self.train_acc[1:], label="train_acc")
+        plt.plot(self.val_acc[1:], label="val_acc")
+        plt.plot(self.val_score[1:], label="val_score")
         plt.title(f"Accuracy - {self.model.__class__.__name__}")
         plt.legend()
         plt.show()
