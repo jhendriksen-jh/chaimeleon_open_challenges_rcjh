@@ -1,0 +1,3 @@
+[submodule "OpenChallenge"]
+	path = OpenChallenge
+	url = git@github.com:chaimeleon-eu/OpenChallenge.git
