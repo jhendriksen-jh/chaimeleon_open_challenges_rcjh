@@ -132,7 +132,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
 
         # optimizer = create_optimizer(image_model)
         for random_seed in [24042]:
-            num_epochs = 500
+            num_epochs = 600
             device = get_device()
             training_batch_size = 48
 

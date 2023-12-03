@@ -730,17 +730,17 @@ class ProstateImageResnet18PretrainedModel(nn.Module):
         # layer3 -> 256x16x16
 
         # metadata layers
-        self.meta_fc1 = nn.Linear(in_features=2, out_features=16)
-        self.meta_fc2 = nn.Linear(in_features=16, out_features=32)
-        self.meta_fc3 = nn.Linear(in_features=32, out_features=64)
-        self.meta_fc4 = nn.Linear(in_features=64, out_features=128)
-        self.meta_fc5 = nn.Linear(in_features=128, out_features=32)
+        # self.meta_fc1 = nn.Linear(in_features=2, out_features=16)
+        # self.meta_fc2 = nn.Linear(in_features=16, out_features=32)
+        # self.meta_fc3 = nn.Linear(in_features=32, out_features=64)
+        # self.meta_fc4 = nn.Linear(in_features=64, out_features=128)
+        # self.meta_fc5 = nn.Linear(in_features=128, out_features=32)
         self.meta_drop = nn.Dropout(p=0.05)
 
         self.image_drop = nn.Dropout(p=0.05)
         self.image_drop2d = nn.Dropout2d(p=0.01)
 
-        self.combo_fc = nn.Linear(in_features=32, out_features=3)
+        # self.combo_fc = nn.Linear(in_features=32, out_features=3)
         
         self.final_fc1 = nn.Linear(in_features=512, out_features=256)
         self.final_fc2 = nn.Linear(in_features=256, out_features=2)

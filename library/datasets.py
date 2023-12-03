@@ -111,7 +111,7 @@ class ChaimeleonData:
         self.keys_by_split = {
             "train": self.train_keys,
             "val": self.val_keys,
-            "test": self.test_keys,
+            "test": self.val_keys,
         }
 
     def __len__(self):
@@ -175,6 +175,15 @@ class ProstateCancerDataset(ChaimeleonData):
                     tv.transforms.RandomAffine(
                         degrees=30, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=5
                     ),
+                    # tv.transforms.Resize(self.image_size, antialias=True),
+                ]
+            )
+        elif split_type == "test":
+            image_transformations = tv.transforms.Compose(
+                [
+                    tv.transforms.ToTensor(),
+                    tv.transforms.Resize(round(self.image_size[0]*0.92), antialias=True),
+                    tv.transforms.RandomAffine(degrees=(-180, -45), shear=(10,18), translate=(0.2, 0.2))
                     # tv.transforms.Resize(self.image_size, antialias=True),
                 ]
             )
@@ -249,8 +258,11 @@ class ProstateCancerDataset(ChaimeleonData):
         current_case_image = current_case["image"]
         current_metadata = current_case["metadata"]
         current_ground_truth = np.squeeze(current_case["ground_truth"])
+        random.seed(self.random_seed)
+        torch.manual_seed(self.random_seed)
+        transformed_image = self.image_transformations(current_case_image)
         return (
-            self.image_transformations(current_case_image),
+            transformed_image,
             torch.FloatTensor(current_metadata),
             torch.FloatTensor(current_ground_truth),
         )
