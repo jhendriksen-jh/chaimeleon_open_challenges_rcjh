@@ -632,9 +632,10 @@ class ProstateCombinedModel(nn.Module):
 
 
 class ProstateCombinedResnet18PretrainedModel(nn.Module):
-    def __init__(self, frozen_layers = []):
+    def __init__(self, frozen_layers = [], eval_mode=False):
         super(ProstateCombinedResnet18PretrainedModel, self).__init__()
         # import pudb; pudb.set_trace()
+        self.eval_mode = eval_mode
         self.model_data_type = "both"
         self.relu = nn.ReLU(inplace=True)
 
@@ -692,10 +693,16 @@ class ProstateCombinedResnet18PretrainedModel(nn.Module):
         # combo layers
         combo_out = self.combo_fc(combo_in2)
 
-        image_in1 = combo_out[:, 0][:, None, None, None] * image[:, 0][:,None]
-        image_in2 = combo_out[:, 1][:, None, None, None] * image[:, 1][:,None]
-        image_in3 = combo_out[:, 2][:, None, None, None] * image[:, 2][:,None]
-        image = torch.cat((image_in1, image_in2, image_in3), dim=1)
+        if self.eval_mode:
+            image_in1 = combo_out[:,:, 0] * image[0,:,:]
+            image_in2 = combo_out[:,:, 1] * image[1,:,:]
+            image_in3 = combo_out[:,:, 2] * image[2,:,:]
+            image = torch.cat((image_in1.unsqueeze(0), image_in2.unsqueeze(0), image_in3.unsqueeze(0)), dim=0).unsqueeze(0)
+        else:
+            image_in1 = combo_out[:, 0][:, None, None, None] * image[:, 0][:,None]
+            image_in2 = combo_out[:, 1][:, None, None, None] * image[:, 1][:,None]
+            image_in3 = combo_out[:, 2][:, None, None, None] * image[:, 2][:,None]
+            image = torch.cat((image_in1, image_in2, image_in3), dim=1)
 
         # image layers
         for layer_name, resnet_layer in self.resnet_layers.items():

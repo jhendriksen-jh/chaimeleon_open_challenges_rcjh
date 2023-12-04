@@ -265,6 +265,9 @@ class ProstateCancerDataset(ChaimeleonData):
             transformed_image,
             torch.FloatTensor(current_metadata),
             torch.FloatTensor(current_ground_truth),
+            list(self.prepared_cases[idx].items())[0],
+            current_case,
+            current_metadata,
         )
 
 
