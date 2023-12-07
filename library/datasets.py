@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 import torchvision as tv
+import SimpleITK as sitk
 
 from collections import defaultdict
 from PIL import Image
@@ -33,13 +34,44 @@ class ChaimeleonData:
         self.get_dataset_splits()
 
     def add_raw_case_data(self, case_directory):
+        case_ground_truth = None
         case_folders = os.listdir(case_directory)
-        for case_folder in case_folders:
-            case_path = os.path.join(case_directory, case_folder)
-            case_files = os.listdir(case_path)
-            for case_file in case_files:
+        if os.path.isdir(os.path.join(case_directory, case_folders[0])):
+            for case_folder in case_folders:
+                case_path = os.path.join(case_directory, case_folder)
+                case_files = os.listdir(case_path)
+                for case_file in case_files:
+                    if case_file.endswith(".nii.gz"):
+                        case_image = self.load_image_file(
+                            os.path.join(case_path, case_file)
+                        )
+                    elif case_file.endswith(".mha"):
+                        case_image = self.load_image_file(
+                            os.path.join(case_path, case_file)
+                        )
+                    elif case_file.endswith("ground_truth.json"):
+                        case_ground_truth = self.add_raw_ground_truth(
+                            os.path.join(case_path, case_file)
+                        )
+                    elif case_file.endswith(".json"):
+                        case_metadata = self.add_raw_metadata(
+                            os.path.join(case_path, case_file)
+                        )
+                raw_case_data = {
+                    "image": case_image,
+                    "metadata": case_metadata,
+                    "ground_truth": case_ground_truth,
+                }
+                self.raw_cases[case_folder] = raw_case_data
+        else:
+            case_path = case_directory
+            for case_file in case_folders:
                 if case_file.endswith(".nii.gz"):
                     case_image = self.load_image_file(
+                        os.path.join(case_path, case_file)
+                    )
+                elif case_file.endswith(".mha"):
+                    case_image= self.load_image_file(
                         os.path.join(case_path, case_file)
                     )
                 elif case_file.endswith("ground_truth.json"):
@@ -53,9 +85,10 @@ class ChaimeleonData:
             raw_case_data = {
                 "image": case_image,
                 "metadata": case_metadata,
-                "ground_truth": case_ground_truth,
+                "ground_truth": case_ground_truth or None,
             }
-            self.raw_cases[case_folder] = raw_case_data
+            self.raw_cases[case_directory] = raw_case_data
+            
         return raw_case_data
 
     def add_raw_metadata(self, metadata_file):
@@ -69,8 +102,14 @@ class ChaimeleonData:
         return raw_ground_truth
 
     def load_image_file(self, image_file):
-        nifti_image = nib.load(image_file)
-        nii_data = nifti_image.get_fdata()
+        if image_file.endswith(".nii.gz"):
+            nifti_image = nib.load(image_file)
+            nii_data = nifti_image.get_fdata()
+        else:
+            image = sitk.ReadImage(image_file)
+            nifti_image = sitk.GetArrayFromImage(image)
+            nifti_image = np.transpose(nifti_image, (2, 1, 0))
+            nii_data = nifti_image
         # nii_affine = nifti_image.get_affine()
         # nii_header = nifti_image.get_header()
         nii_chunks = []
@@ -112,6 +151,7 @@ class ChaimeleonData:
             "train": self.train_keys,
             "val": self.val_keys,
             "test": self.val_keys,
+            "all": dataset_keys,
         }
 
     def __len__(self):
@@ -165,6 +205,8 @@ class ProstateCancerDataset(ChaimeleonData):
                     }
                 }
             )
+        if len(prepared_cases) == 1:
+            prepared_cases = prepared_cases*2
         self.prepared_cases = prepared_cases
 
     def define_image_transformations(self, split_type):
@@ -230,11 +272,19 @@ class ProstateCancerDataset(ChaimeleonData):
                 (all_encoded_metadata, encoded_metadata), axis=0
             )
         for key in self.numerical_metadata:
-            current_value = raw_metadata[key]
+            if key == 'age' and raw_metadata.get(key) is not None:
+                current_value = raw_metadata[key]
+            elif key == 'age' and raw_metadata.get(key) is None:
+                key = 'patient_age'
+                current_value = raw_metadata[key]
+            else:
+                current_value = raw_metadata[key]
             max_value = self.metadata_details[key]["max"]
             min_value = self.metadata_details[key]["min"]
-            normalized_value = (current_value - min_value) / (max_value - min_value)
-            normalized_value = np.array([[normalized_value]])
+
+            if len(self.metadata_details[key]["sorted_values"]) > 1:
+                normalized_value = (current_value - min_value) / (max_value - min_value)
+                normalized_value = np.array([[normalized_value]])
             # all_encoded_metadata = np.concatenate(
             #     (all_encoded_metadata, normalized_value), axis=0
             # )
@@ -244,31 +294,40 @@ class ProstateCancerDataset(ChaimeleonData):
         return all_encoded_metadata
 
     def normalize_ground_truth(self, raw_ground_truth):
-        normalized_ground_truth = np.zeros((2, 1))
-        if raw_ground_truth == "Low":
-            normalized_ground_truth[0] = 1
-        elif raw_ground_truth == "High":
-            normalized_ground_truth[1] = 1
+        if raw_ground_truth is not None:
+            normalized_ground_truth = np.zeros((2, 1))
+            if raw_ground_truth == "Low":
+                normalized_ground_truth[0] = 1
+            elif raw_ground_truth == "High":
+                normalized_ground_truth[1] = 1
+            else:
+                raise ValueError('Ground truth must be either "Low" or "High"')
         else:
-            raise ValueError('Ground truth must be either "Low" or "High"')
+            normalized_ground_truth = None
         return normalized_ground_truth
 
     def __getitem__(self, idx):
         current_case = list(self.prepared_cases[idx].values())[0]
         current_case_image = current_case["image"]
         current_metadata = current_case["metadata"]
-        current_ground_truth = np.squeeze(current_case["ground_truth"])
         random.seed(self.random_seed)
         torch.manual_seed(self.random_seed)
         transformed_image = self.image_transformations(current_case_image)
-        return (
-            transformed_image,
-            torch.FloatTensor(current_metadata),
-            torch.FloatTensor(current_ground_truth),
-            list(self.prepared_cases[idx].items())[0],
-            current_case,
-            current_metadata,
-        )
+        if current_case['ground_truth'] is not None:
+            current_ground_truth = np.squeeze(current_case["ground_truth"])
+            return (
+                transformed_image,
+                torch.FloatTensor(current_metadata),
+                torch.FloatTensor(current_ground_truth),
+                list(self.prepared_cases[idx].items())[0],
+                current_case,
+                current_metadata,
+            )
+        else:
+            return(
+                transformed_image,
+                torch.FloatTensor(current_metadata),
+            )
 
 
 class LungCancerDataset(ChaimeleonData):

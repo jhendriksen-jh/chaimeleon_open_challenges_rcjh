@@ -11,6 +11,8 @@ from evalutils.validators import (
 )
 
 from library.models import ProstateCombinedResnet18PretrainedModel
+from library.datasets import ProstateCancerDataset
+from library.train import create_dataloader
 
 class Prostatecancerriskprediction(ClassificationAlgorithm):
     def __init__(self):
@@ -38,18 +40,22 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
         self.risk_score_likelihood_output_file = Path("/output/prostate-cancer-risk-score-likelihood.json")
     
     def predict(self, image_path: str = None, clinical_info_path: str = None):
-        # import pudb; pudb.set_trace()
         """
         Your algorithm goes here
         """        
-        if image_path:
-            self.image_input_path = Path(image_path)
-        if clinical_info_path:
-            with open(clinical_info_path, 'r') as f:
-                self.clinical_info = json.load(f)
+        dataset = ProstateCancerDataset(data_directory='datasets/eval_prostate/case_0279', split_type='all', input_slice_count=self.input_slice_count)
+        eval_loader = create_dataloader(dataset, batch_size=2, shuffle=False)
+        for data in eval_loader:
+            (eval_images, self.clinical_info) = data
+
+        # if image_path:
+        #     self.image_input_path = Path(image_path)
+        # if clinical_info_path:
+        #     with open(clinical_info_path, 'r') as f:
+        #         self.clinical_info = json.load(f)
     
         # read image
-        image = sitk.ReadImage(str(self.image_input_path))
+        # image = sitk.ReadImage(str(self.image_input_path))
         clinical_info = self.clinical_info
         print('Clinical info: ')
         print(clinical_info)
@@ -57,38 +63,40 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
         # TODO: Add your inference code here
         risk_scores = ['Low', 'High']
 
-        np_image = sitk.GetArrayFromImage(image)
-        nii_chunks = []
-        for k in range(self.input_slice_count):
-            u = int(np.ceil((k + 1) * (np_image.shape[0] / self.input_slice_count)))
-            l = int(np.floor((k) * (np_image.shape[0] / self.input_slice_count)))
-            nii_chunk = np.mean(np_image[l:u, :, :], axis=0)
-            nii_chunk = (
-                (nii_chunk - nii_chunk.min()) / (nii_chunk.max() - nii_chunk.min())
-            ) * 255
-            nii_chunks.append(nii_chunk)
-        nii_chunked_image = np.array(nii_chunks).astype(np.uint8)
-        # nii_chunked_image = np.transpose(nii_chunked_image, (1, 2, 0))
-        image_tensor = torch.from_numpy(nii_chunked_image)
+        # np_image = sitk.GetArrayFromImage(image)
+        # nii_chunks = []
+        # for k in range(self.input_slice_count):
+        #     u = int(np.ceil((k + 1) * (np_image.shape[0] / self.input_slice_count)))
+        #     l = int(np.floor((k) * (np_image.shape[0] / self.input_slice_count)))
+        #     nii_chunk = np.mean(np_image[l:u, :, :], axis=0)
+        #     nii_chunk = (
+        #         (nii_chunk - nii_chunk.min()) / (nii_chunk.max() - nii_chunk.min())
+        #     ) * 255
+        #     nii_chunks.append(nii_chunk)
+        # nii_chunked_image = np.array(nii_chunks).astype(np.uint8)
+        # # nii_chunked_image = np.transpose(nii_chunked_image, (1, 2, 0))
+        # image_tensor = torch.from_numpy(nii_chunked_image)
 
-        if clinical_info.get("patient_age"):
-            age = int(clinical_info["patient_age"])
-        else:
-            age = int(clinical_info["age"])
-        psa = float(clinical_info["psa"])
-        clinical_tensor = torch.FloatTensor([[[age, psa]]])
+        # if clinical_info.get("patient_age"):
+        #     age = int(clinical_info["patient_age"])
+        # else:
+        #     age = int(clinical_info["age"])
+        # psa = float(clinical_info["psa"])
+        # clinical_tensor = torch.FloatTensor([[[age, psa]]])
+
+
 
         model_path = "./library/release_models/20231127_best_val_score_unfrozen_01lr_raw_meta_ProstateCombinedResnet18PretrainedModel.pt"
-        model = ProstateCombinedResnet18PretrainedModel(eval_mode=True)
+        model = ProstateCombinedResnet18PretrainedModel()
         model_state_dict = torch.load(f"{model_path}")
         model.load_state_dict(model_state_dict)
         model.eval()
 
-        prediction_scores = model((image_tensor, clinical_tensor))
+        prediction_scores = model((eval_images, self.clinical_info.squeeze()))
         print(prediction_scores)
         prediction = torch.argmax(prediction_scores, dim=1)
-        risk_score = risk_scores[prediction.item()]
-        risk_score_likelihood = torch.softmax(prediction_scores,dim=1)[0][prediction.item()].item()
+        risk_score = risk_scores[prediction[0].item()]
+        risk_score_likelihood = torch.softmax(prediction_scores,dim=1)[0][prediction[0].item()].item()
 
         print('Risk score: ', risk_score)
         print('Risk score likelihood: ', risk_score_likelihood)
