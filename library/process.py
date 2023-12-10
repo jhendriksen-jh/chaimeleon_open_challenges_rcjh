@@ -29,7 +29,7 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
         self.image_input_dir = "/input/images/axial-t2-prostate-mri/"
         self.image_input_path = list(Path(self.image_input_dir).glob("*.mha"))
         if self.image_input_path:
-            self.image_input_path = self.image_input_path[0]
+            self.image_input_path = str(self.image_input_path[0])
 
         # load clinical information
         # dictionary with patient_age and psa information
@@ -112,12 +112,12 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
         print('Risk score likelihood: ', risk_score_likelihood)
 
         # save case-level class
-        # with open(str(self.risk_score_output_file), 'w') as f:
-        #     json.dump(risk_score, f)
+        with open(str(self.risk_score_output_file), 'w') as f:
+            json.dump(risk_score, f)
 
-        # # save case-level likelihood
-        # with open(str(self.risk_score_likelihood_output_file), 'w') as f:
-        #     json.dump(float(risk_score_likelihood), f)
+        # save case-level likelihood
+        with open(str(self.risk_score_likelihood_output_file), 'w') as f:
+            json.dump(float(risk_score_likelihood), f)
 
 
 if __name__ == "__main__":
