@@ -11,8 +11,7 @@ from evalutils.validators import (
 )
 
 from library.models import ProstateCombinedResnet18PretrainedModel
-from library.datasets import ProstateCancerDataset
-from library.train import create_dataloader
+from library.datasets import ProstateCancerDataset, create_dataloader
 
 class Prostatecancerriskprediction(ClassificationAlgorithm):
     def __init__(self):
@@ -26,12 +25,15 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
         )
         self.input_slice_count = 3
 
-        # # path to image file
-        # self.image_input_dir = "/input/images/axial-t2-prostate-mri/"
-        # self.image_input_path = list(Path(self.image_input_dir).glob("*.mha"))[0]
+        # path to image file
+        self.image_input_dir = "/input/images/axial-t2-prostate-mri/"
+        self.image_input_path = list(Path(self.image_input_dir).glob("*.mha"))
+        if self.image_input_path:
+            self.image_input_path = self.image_input_path[0]
 
-        # # load clinical information
-        # # dictionary with patient_age and psa information
+        # load clinical information
+        # dictionary with patient_age and psa information
+        self.clinical_info_path = "/input/psa-and-age.json"
         # with open("/input/psa-and-age.json") as fp:
         #     self.clinical_info = json.load(fp)
 
@@ -39,11 +41,16 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
         self.risk_score_output_file = Path("/output/prostate-cancer-risk-score.json")
         self.risk_score_likelihood_output_file = Path("/output/prostate-cancer-risk-score-likelihood.json")
     
-    def predict(self, image_path: str = None, clinical_info_path: str = None):
+    def predict(self, image_path=None, clinical_info_path=None):
         """
         Your algorithm goes here
         """        
-        dataset = ProstateCancerDataset(data_directory='datasets/eval_prostate/case_0279', split_type='all', input_slice_count=self.input_slice_count)
+        if image_path is None:
+            image_path = self.image_input_path
+        if clinical_info_path is None:
+            clinical_info_path = self.clinical_info_path
+
+        dataset = ProstateCancerDataset(image_path = image_path, metadata_path = clinical_info_path, split_type='all', input_slice_count=self.input_slice_count)
         eval_loader = create_dataloader(dataset, batch_size=2, shuffle=False)
         for data in eval_loader:
             (eval_images, self.clinical_info) = data
@@ -88,7 +95,10 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
 
         model_path = "./library/release_models/20231127_best_val_score_unfrozen_01lr_raw_meta_ProstateCombinedResnet18PretrainedModel.pt"
         model = ProstateCombinedResnet18PretrainedModel()
-        model_state_dict = torch.load(f"{model_path}")
+        if not torch.cuda.is_available():
+            model_state_dict = torch.load(f"{model_path}", map_location=torch.device("cpu"))
+        else:
+            model_state_dict = torch.load(f"{model_path}")
         model.load_state_dict(model_state_dict)
         model.eval()
 
@@ -111,6 +121,6 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
 
 
 if __name__ == "__main__":
-    # Prostatecancerriskprediction().predict()
-    Prostatecancerriskprediction().predict(image_path="./datasets/eval_prostate/case_0157.mha", clinical_info_path="./datasets/eval_prostate/case_0157.json")
+    Prostatecancerriskprediction().predict()
+    # Prostatecancerriskprediction().predict(image_path="./datasets/eval_prostate/case_0157.mha", clinical_info_path="./datasets/eval_prostate/case_0157.json")
     # Prostatecancerriskprediction().predict(image_path="./datasets/eval_prostate/case_0279/case_0279.mha", clinical_info_path="./datasets/eval_prostate/case_0279/case_0279.json")

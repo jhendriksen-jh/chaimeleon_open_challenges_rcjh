@@ -20,9 +20,10 @@ RUN python3 -m pip install --user -U pip && python3 -m pip install --user pip-to
 # install required packages
 COPY --chown=user:user ./../../requirements.txt /opt/app/
 RUN pip install --upgrade pip wheel
-RUN python3 -m piptools sync requirements.txt
+RUN pip install -r requirements.txt
 RUN pip install SimpleITK evalutils
 
-COPY --chown=user:user ./../../library/process.py /opt/app/
+COPY --chown=user:user ./../../library/ /opt/app/library/
+# COPY --chown=user:user datasets/eval_prostate/case_0279/ /opt/app/datasets/eval_prostate/case_0279/
 
-ENTRYPOINT [ "python", "-m", "process" ]
+ENTRYPOINT [ "python", "-m", "library.process" ]

@@ -14,10 +14,18 @@ import SimpleITK as sitk
 
 from collections import defaultdict
 from PIL import Image
+from torch.utils.data import DataLoader
+
+def create_dataloader(
+    dataset, batch_size=16, shuffle=True, num_workers=os.cpu_count() - 1
+):
+    return DataLoader(
+        dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+    )
 
 
 class ChaimeleonData:
-    def __init__(self, data_directory, input_slice_count: int = 1, random_seed=2038):
+    def __init__(self, data_directory, image_path, metadata_path, input_slice_count: int = 1, random_seed=2038):
         self.random_seed = random_seed
         self.data_directory = data_directory
         self.input_slice_count = input_slice_count
@@ -25,28 +33,54 @@ class ChaimeleonData:
         self.raw_cases = {}
         self.prepared_cases = []
 
-        self.process_data_directory()
+        self.process_data_directory(data_directory, image_path, metadata_path)
 
-    def process_data_directory(self, data_directory=None):
+    def process_data_directory(self, data_directory=None, image_path=None, metadata_path=None):
         if data_directory is None:
             data_directory = self.data_directory
-        self.add_raw_case_data(data_directory)
+        self.add_raw_case_data(data_directory, image_path, metadata_path)
         self.get_dataset_splits()
 
-    def add_raw_case_data(self, case_directory):
+    def add_raw_case_data(self, case_directory, image_path=None, metadata_path=None):
         case_ground_truth = None
-        case_folders = os.listdir(case_directory)
-        if os.path.isdir(os.path.join(case_directory, case_folders[0])):
-            for case_folder in case_folders:
-                case_path = os.path.join(case_directory, case_folder)
-                case_files = os.listdir(case_path)
-                for case_file in case_files:
+        if case_directory is not None:
+            case_folders = os.listdir(case_directory)
+            if os.path.isdir(os.path.join(case_directory, case_folders[0])):
+                for case_folder in case_folders:
+                    case_path = os.path.join(case_directory, case_folder)
+                    case_files = os.listdir(case_path)
+                    for case_file in case_files:
+                        if case_file.endswith(".nii.gz"):
+                            case_image = self.load_image_file(
+                                os.path.join(case_path, case_file)
+                            )
+                        elif case_file.endswith(".mha"):
+                            case_image = self.load_image_file(
+                                os.path.join(case_path, case_file)
+                            )
+                        elif case_file.endswith("ground_truth.json"):
+                            case_ground_truth = self.add_raw_ground_truth(
+                                os.path.join(case_path, case_file)
+                            )
+                        elif case_file.endswith(".json"):
+                            case_metadata = self.add_raw_metadata(
+                                os.path.join(case_path, case_file)
+                            )
+                    raw_case_data = {
+                        "image": case_image,
+                        "metadata": case_metadata,
+                        "ground_truth": case_ground_truth,
+                    }
+                    self.raw_cases[case_folder] = raw_case_data
+            else:
+                case_path = case_directory
+                for case_file in case_folders:
                     if case_file.endswith(".nii.gz"):
                         case_image = self.load_image_file(
                             os.path.join(case_path, case_file)
                         )
                     elif case_file.endswith(".mha"):
-                        case_image = self.load_image_file(
+                        case_image= self.load_image_file(
                             os.path.join(case_path, case_file)
                         )
                     elif case_file.endswith("ground_truth.json"):
@@ -60,35 +94,19 @@ class ChaimeleonData:
                 raw_case_data = {
                     "image": case_image,
                     "metadata": case_metadata,
-                    "ground_truth": case_ground_truth,
+                    "ground_truth": case_ground_truth or None,
                 }
-                self.raw_cases[case_folder] = raw_case_data
-        else:
-            case_path = case_directory
-            for case_file in case_folders:
-                if case_file.endswith(".nii.gz"):
-                    case_image = self.load_image_file(
-                        os.path.join(case_path, case_file)
-                    )
-                elif case_file.endswith(".mha"):
-                    case_image= self.load_image_file(
-                        os.path.join(case_path, case_file)
-                    )
-                elif case_file.endswith("ground_truth.json"):
-                    case_ground_truth = self.add_raw_ground_truth(
-                        os.path.join(case_path, case_file)
-                    )
-                elif case_file.endswith(".json"):
-                    case_metadata = self.add_raw_metadata(
-                        os.path.join(case_path, case_file)
-                    )
+                self.raw_cases[case_directory] = raw_case_data
+        elif image_path is not None and metadata_path is not None:
+            case_image = self.load_image_file(image_path)
+            case_metadata = self.add_raw_metadata(metadata_path)
             raw_case_data = {
                 "image": case_image,
                 "metadata": case_metadata,
-                "ground_truth": case_ground_truth or None,
+                "ground_truth": None,
             }
-            self.raw_cases[case_directory] = raw_case_data
-            
+            self.raw_cases[image_path] = raw_case_data
+
         return raw_case_data
 
     def add_raw_metadata(self, metadata_file):
@@ -161,13 +179,15 @@ class ChaimeleonData:
 class ProstateCancerDataset(ChaimeleonData):
     def __init__(
         self,
-        data_directory,
+        data_directory = None,
+        image_path = None,
+        metadata_path = None,
         split_type="train",
         random_seed=20380119,
         input_slice_count: int = 1,
     ):
         super().__init__(
-            data_directory, input_slice_count=input_slice_count, random_seed=random_seed
+            data_directory, image_path, metadata_path, input_slice_count=input_slice_count, random_seed=random_seed
         )
         self.split_type = split_type
         self.split_keys = self.keys_by_split[split_type]
