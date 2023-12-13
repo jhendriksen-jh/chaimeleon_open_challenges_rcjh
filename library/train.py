@@ -201,7 +201,7 @@ class Trainer:
                     )
                 elif self.loss_fn is LUNG_LOSS:
                     estimates = torch.nn.functional.softmax(output, dim=1).to("cpu")
-
+                    epoch_preds.extend([i.item() for i in pred])
                     epoch_outputs.extend([i for i in estimates])
                     epoch_targets.extend(pfs)
 
@@ -210,13 +210,13 @@ class Trainer:
             self.val_loss.append(val_loss * 10)
             self.val_acc.append(val_acc)
             if self.eval_function is not None and self.loss_fn is PROSTATE_LOSS:
-                val_score, val_score_dict = self.eval_function(epoch_targets, epoch_outputs, epoch_preds)
-                self.val_score.append(
-                    val_score
+                val_score, val_score_dict = self.eval_function(
+                    epoch_targets, epoch_outputs, epoch_preds
                 )
+                self.val_score.append(val_score)
                 self.val_score_dicts.append(val_score_dict)
             elif self.eval_function is not None and self.loss_fn is LUNG_LOSS:
-                self.val_score.append(self.eval_function(epoch_targets, epoch_outputs))
+                self.val_score.append(self.eval_function(epoch_targets, epoch_preds))
             self.val_time.append(time.time() - start_time)
 
         return self.val_loss, self.val_acc, self.val_time
