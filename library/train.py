@@ -91,7 +91,7 @@ class Trainer:
                     f"{self.training_dir}best_val_acc_{self.model.__class__.__name__}.pt",
                 )
                 print(
-                    f"{epoch+1}/{epochs} - New best validation perf: {self.best_val_acc:.4f} acc at epoch {self.best_epoch} - score: {self.best_score:.4f} - train acc: {self.train_acc[-1]:.4f}"
+                    f"{epoch+1}/{epochs} - New best validation acc: {self.best_val_acc:.4f} acc at epoch {self.best_epoch} - score: {self.val_score[-1]:.4f} - train acc: {self.train_acc[-1]:.4f}"
                 )
             if improved_score:
                 self.best_val_loss = self.val_loss[-1]
@@ -101,7 +101,7 @@ class Trainer:
                     f"{self.training_dir}best_val_score_{self.model.__class__.__name__}.pt",
                 )
                 print(
-                    f"{epoch+1}/{epochs} - New best validation perf: {self.best_val_acc:.4f} acc at epoch {self.best_epoch} - score: {self.best_score:.4f} - train acc: {self.train_acc[-1]:.4f}"
+                    f"{epoch+1}/{epochs} - New best validation score: {self.val_acc[-1]:.4f} acc at epoch {self.best_epoch} - score: {self.best_score:.4f} - train acc: {self.train_acc[-1]:.4f}"
                 )
             else:
                 print(

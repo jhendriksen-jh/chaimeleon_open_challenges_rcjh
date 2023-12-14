@@ -1,0 +1,10 @@
+Training for all models complete - 130.27s - 4 epochs
+Training Prostate Cancer Dataset - 179 low risk cases, 71 high risk cases, 0.716 high risk ratio
+Validation Prostate Cancer Dataset - 31 low risk cases, 14 high risk cases, 0.6888888888888889 high risk ratio
+
+
+ProstateMetadataModel - best_epoch: 4 - best_acc: 0.6888888888888889 - best_score: 0.5442396313364055 - 202_386 params
+ProstateMetadataModelV2Small - best_epoch: 3 - best_acc: 0.7111111111111111 - best_score: 0.5926267281105991 - 40_050 params
+ProstateMetadataModelV3 - best_epoch: 4 - best_acc: 0.6888888888888889 - best_score: 0.5488479262672811 - 129_890 params
+ProstateCombinedResnet18PretrainedModel_[]_frozen_0.005_learning_rate - best_epoch: 3 - best_acc: 0.6888888888888889 - best_score: 0.5308755760368664 - 11_836_605 params
+ProstateImageResnet18PretrainedModel_[]_frozen_0.005_learning_rate - best_epoch: 4 - best_acc: 0.6888888888888889 - best_score: 0.5105990783410138 - 11_836_605 params

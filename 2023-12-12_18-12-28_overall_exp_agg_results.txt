@@ -1,0 +1,5 @@
+
+LungCombinedResnet18PretrainedModel_0.01_learning_rate - best_epoch: 157 - best_acc: 0.125 - best_score: 0.7540687160940326 - 11_939_169 params
+LungCombinedResnet18PretrainedModel_0.003_learning_rate - best_epoch: 48 - best_acc: 0.041666666666666664 - best_score: 0.7522603978300181 - 11_939_169 params
+LungCombinedResnet18PretrainedModel_0.001_learning_rate - best_epoch: 72 - best_acc: 0.020833333333333332 - best_score: 0.6853526220614828 - 11_939_169 params
+LungCombinedResnet18PretrainedModel_0.0001_learning_rate - best_epoch: 216 - best_acc: 0.020833333333333332 - best_score: 0.6600361663652803 - 11_939_169 params
