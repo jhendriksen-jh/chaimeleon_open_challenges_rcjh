@@ -52,6 +52,10 @@ class ChaimeleonData:
         if os.path.exists(npz_path):
             self.raw_case_images = np.load(npz_path, allow_pickle=True)
             self.process_data_directory(data_directory, image_path, metadata_path, case_image_archive = self.raw_case_images)
+        elif os.path.exists(f".{npz_path}"):
+            npz_path = f".{npz_path}"
+            self.raw_case_images = np.load(npz_path, allow_pickle=True)
+            self.process_data_directory(data_directory, image_path, metadata_path, case_image_archive = self.raw_case_images)
         else:
             self.process_data_directory(data_directory, image_path, metadata_path)
             self.save_raw_cases_npz_compressed(npz_path)
@@ -296,7 +300,7 @@ class ProstateCancerDataset(ChaimeleonData):
                 [
                     tv.transforms.ToTensor(),
                     tv.transforms.RandomAffine(
-                        degrees=45, translate=(0.15, 0.15), scale=(0.9, 1.1), shear=5
+                        degrees=37, translate=(0.12, 0.12), scale=(0.9, 1.1), shear=5
                     ),
                     # tv.transforms.Resize(self.image_size, antialias=True),
                 ]
@@ -306,10 +310,10 @@ class ProstateCancerDataset(ChaimeleonData):
                 [
                     tv.transforms.ToTensor(),
                     tv.transforms.Resize(
-                        round(self.image_size[0] * random.uniform(0.85, 1.15)), antialias=True
+                        round(self.image_size[0] * random.uniform(0.9, 1.1)), antialias=True
                     ),
                     tv.transforms.RandomAffine(
-                        degrees=(-180, -55), shear=(10, 18), translate=(0.3, 0.3)
+                        degrees=(-60, -15), shear=(5, 10), translate=(0.2, 0.2)
                     )
                     # tv.transforms.Resize(self.image_size, antialias=True),
                 ]
@@ -395,11 +399,11 @@ class ProstateCancerDataset(ChaimeleonData):
     def metatadata_transformations(self, metadata):
         # import pudb; pudb.set_trace()
         random.seed(time.time())
-        if self.split_type != "train":
+        if self.split_type == "val" or self.split_type == "all":
             return torch.FloatTensor(metadata)
         else:
             for k in range(len(metadata)):
-                numerical_scale = random.uniform(0.85, 1.15)
+                numerical_scale = random.uniform(0.93, 1.07)
                 metadata[k] = metadata[k] * numerical_scale
             
             return torch.FloatTensor(metadata)
@@ -408,8 +412,9 @@ class ProstateCancerDataset(ChaimeleonData):
         current_case = list(self.prepared_cases[idx].values())[0]
         current_case_image = current_case["image"]
         current_metadata = current_case["metadata"]
-        random.seed(self.random_seed)
-        torch.manual_seed(self.random_seed)
+        if self.split_type == 'test':
+            random.seed(self.random_seed+idx)
+            torch.manual_seed(self.random_seed+idx)
         transformed_image = self.image_transformations(current_case_image)
         if current_case["ground_truth"] is not None:
             current_ground_truth = np.squeeze(current_case["ground_truth"])
@@ -507,12 +512,12 @@ class LungCancerDataset(ChaimeleonData):
                 [
                     tv.transforms.ToTensor(),
                     tv.transforms.Resize(
-                        round(self.image_size[0] * random.uniform(0.85, 1.15)), antialias=True
+                        round(self.image_size[0] * random.uniform(0.9, 1.1)), antialias=True
                     ),
                     tv.transforms.RandomAffine(
-                        degrees=(-180, -55), shear=(10, 18), translate=(0.3, 0.3)
-                    )
-                    # tv.transforms.Resize(self.image_size, antialias=True),
+                        degrees=(-60, -15), shear=(5, 10), translate=(0.2, 0.2)
+                    ),
+                    tv.transforms.Resize(self.image_size, antialias=True),
                 ]
             )
         else:
@@ -528,7 +533,7 @@ class LungCancerDataset(ChaimeleonData):
     def metatadata_transformations(self, metadata):
         # import pudb; pudb.set_trace()
         random.seed(time.time())
-        if self.split_type != "train":
+        if self.split_type == "val" or self.split_type == "all":
             return torch.FloatTensor(metadata)
         else:
             numerical_scale = random.uniform(0.85, 1.15)
@@ -615,8 +620,14 @@ class LungCancerDataset(ChaimeleonData):
         current_metadata = current_case["metadata"]
         current_ground_truth = np.squeeze(current_case["ground_truth"])
         current_survival = current_case["survival"]
-        return (
-            self.image_transformations(current_case_image),
-            self.metatadata_transformations(current_metadata),
-            (torch.FloatTensor(current_ground_truth), current_survival),
-        )
+        if current_case["ground_truth"] is not None:
+            return (
+                self.image_transformations(current_case_image),
+                self.metatadata_transformations(current_metadata),
+                (torch.FloatTensor(current_ground_truth), current_survival),
+            )
+        if current_case["ground_truth"] is not None:
+            return (
+                self.image_transformations(current_case_image),
+                self.metatadata_transformations(current_metadata),
+            )

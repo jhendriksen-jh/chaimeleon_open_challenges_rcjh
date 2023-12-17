@@ -232,7 +232,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             starting_lr = 0.005
             # slices = [1, 3, 6, 9, 18]
             input_slices = 3
-            for starting_lr, factor in [(0.01, 0.75), (0.01, 0.25), (0.003, 0.75)]:
+            for starting_lr, factor in [(0.01, 0.75), (0.01, 0.25), (0.007, 0.5), (0.003, 0.75)]:
                 for frozen_layers in [
                     [],
                     ["layer2", "layer3"],
@@ -269,7 +269,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
                         print(
                             f"\n######## Training {combo_model.__class__.__name__} {frozen_layers} frozen {starting_lr} lr {factor} factor - {get_number_of_parameters(combo_model):_} ########\n"
                         )
-                        training_dir = f"./tuning_exp_training_details/pretrained_model_raw_metadata/{combo_model.__class__.__name__}/{training_timestamp}/{frozen_layers}_frozen/{starting_lr}_starting_learning_rate_{factor}_factor/"
+                        training_dir = f"./tuning_exp_training_details/pretrained_model_raw_metadata/{combo_model.__class__.__name__}/{training_timestamp}/fixed_augmentation_less_extreme/{frozen_layers}_frozen/{starting_lr}_starting_learning_rate_{factor}_factor/"
                         os.makedirs(training_dir, exist_ok=True)
                         combo_optimizer = create_optimizer(combo_model, lr=starting_lr)
                         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(

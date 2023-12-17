@@ -641,8 +641,12 @@ class ProstateCombinedResnet18PretrainedModel(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
         # self.resnet18 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT, progress=True)
-        with open("./library/resnet18.pkl", "rb") as f:
-            self.resnet18 = pkl.load(f)
+        try:
+            with open("./library/resnet18.pkl", "rb") as f:
+                self.resnet18 = pkl.load(f)
+        except FileNotFoundError:
+            with open("../library/resnet18.pkl", "rb") as f:
+                self.resnet18 = pkl.load(f)
         resnet_layer_list = list(self.resnet18.children())
         self.resnet_layers = {
             "conv1": 0,
@@ -1093,8 +1097,12 @@ class LungCombinedResnet18PretrainedModel(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
         # self.resnet18 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT, progress=True)
-        with open("./library/resnet18.pkl", "rb") as f:
-            self.resnet18 = pkl.load(f)
+        try:
+            with open("./library/resnet18.pkl", "rb") as f:
+                self.resnet18 = pkl.load(f)
+        except FileNotFoundError:
+            with open("../library/resnet18.pkl", "rb") as f:
+                self.resnet18 = pkl.load(f)
         resnet_layer_list = list(self.resnet18.children())
         self.resnet_layers = {
             "conv1": 0,
