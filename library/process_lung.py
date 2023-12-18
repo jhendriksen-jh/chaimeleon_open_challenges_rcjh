@@ -51,7 +51,6 @@ class Lungcancerosprediction(ClassificationAlgorithm):
         number_of_buckets = 400
         months_per_gt_bucket = 0.5
 
-        import pudb; pudb.set_trace()
         dataset = LungCancerDataset(
             image_path=image_path,
             metadata_path=clinical_info_path,
@@ -86,7 +85,6 @@ class Lungcancerosprediction(ClassificationAlgorithm):
             print(f"model_loaded - gpu")
         model.load_state_dict(model_state_dict)
         model.eval()
-        import pudb; pudb.set_trace()
 
         outputs = model((eval_images, self.clinical_info.squeeze()))
         predictions = torch.argmax(outputs, dim=1)
