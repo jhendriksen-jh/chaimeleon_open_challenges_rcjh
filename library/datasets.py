@@ -36,6 +36,7 @@ class ChaimeleonData:
         input_slice_count: int = 1,
         random_seed=2038,
         lung=False,
+        release=False,
     ):
         self.random_seed = random_seed
         self.data_directory = data_directory
@@ -49,10 +50,10 @@ class ChaimeleonData:
         else:
             npz_path = f"./datasets/train_prostate_npz/processed_case_images_{input_slice_count}.npz"
         os.makedirs(os.path.dirname(npz_path), exist_ok=True)
-        if os.path.exists(npz_path):
+        if os.path.exists(npz_path) and not release:
             self.raw_case_images = np.load(npz_path, allow_pickle=True)
             self.process_data_directory(data_directory, image_path, metadata_path, case_image_archive = self.raw_case_images)
-        elif os.path.exists(f".{npz_path}"):
+        elif os.path.exists(f".{npz_path}") and not release:
             npz_path = f".{npz_path}"
             self.raw_case_images = np.load(npz_path, allow_pickle=True)
             self.process_data_directory(data_directory, image_path, metadata_path, case_image_archive = self.raw_case_images)
@@ -132,7 +133,7 @@ class ChaimeleonData:
                 }
                 self.raw_cases[case_directory] = raw_case_data
         elif image_path is not None and metadata_path is not None:
-            case_image = self.load_image_file(image_path)
+            case_image = self.load_image_file(image_path, lung=self.lung)
             case_metadata = self.add_raw_metadata(metadata_path)
             raw_case_data = {
                 "image": case_image,
@@ -246,6 +247,7 @@ class ProstateCancerDataset(ChaimeleonData):
         split_type="train",
         random_seed=20380119,
         input_slice_count: int = 1,
+        release=False,
     ):
         super().__init__(
             data_directory,
@@ -253,6 +255,7 @@ class ProstateCancerDataset(ChaimeleonData):
             metadata_path,
             input_slice_count=input_slice_count,
             random_seed=random_seed,
+            release=release,
         )
         self.split_type = split_type
         self.split_keys = self.keys_by_split[split_type]
@@ -443,6 +446,7 @@ class LungCancerDataset(ChaimeleonData):
         months_per_gt_bucket=1,
         number_of_buckets = 360,
         random_seed=20380119,
+        release=False,
     ):
         super().__init__(
             data_directory,
@@ -450,6 +454,7 @@ class LungCancerDataset(ChaimeleonData):
             image_path=image_path,
             metadata_path=metadata_path,
             random_seed=random_seed,
+            release=release,
         )
 
         self.split_type = split_type
@@ -479,21 +484,35 @@ class LungCancerDataset(ChaimeleonData):
             normalized_ground_truth = self.normalize_ground_truth(
                 raw_case["ground_truth"]
             )
-            prepared_cases.append(
-                {
-                    key: {
-                        "image": raw_image,
-                        "metadata": prepped_metadata,
-                        "ground_truth": normalized_ground_truth,
-                        "survival": np.array(
-                            [
-                                raw_case["ground_truth"]["event"],
-                                raw_case["ground_truth"]["survival_time_months"],
-                            ]
-                        ),
+            if normalized_ground_truth is not None:
+                prepared_cases.append(
+                    {
+                        key: {
+                            "image": raw_image,
+                            "metadata": prepped_metadata,
+                            "ground_truth": normalized_ground_truth,
+                            "survival": np.array(
+                                [
+                                    raw_case["ground_truth"]["event"],
+                                    raw_case["ground_truth"]["survival_time_months"],
+                                ]
+                            ),
+                        }
                     }
-                }
-            )
+                )
+            else:
+                prepared_cases.append(
+                    {
+                        key: {
+                            "image": raw_image,
+                            "metadata": prepped_metadata,
+                            "ground_truth": normalized_ground_truth,
+                            "survival": None,
+                        }
+                    }
+                )
+        if len(prepared_cases) == 1:
+            prepared_cases = prepared_cases * 2
         self.prepared_cases = prepared_cases
 
     def define_image_transformations(self, split_type):
@@ -589,7 +608,8 @@ class LungCancerDataset(ChaimeleonData):
             current_value = raw_metadata[key]
             max_value = self.metadata_details[key]["max"]
             min_value = self.metadata_details[key]["min"]
-            normalized_value = (current_value - min_value) / (max_value - min_value)
+            if len(self.metadata_details[key]["sorted_values"]) > 1:
+                normalized_value = (current_value - min_value) / (max_value - min_value)
             # normalized_value = np.array([[normalized_value]])
             normalized_value = np.array([[current_value]])
             all_encoded_metadata = np.concatenate(
@@ -598,9 +618,12 @@ class LungCancerDataset(ChaimeleonData):
         return all_encoded_metadata
 
     def normalize_ground_truth(self, raw_ground_truth):
-        normalized_ground_truth = np.zeros((self.number_of_buckets, 1))
-        normalized_gt_bucket = round(raw_ground_truth["survival_time_months"] / self.months_per_gt_bucket)
-        normalized_ground_truth[normalized_gt_bucket][0] = raw_ground_truth["event"]
+        if raw_ground_truth is not None:
+            normalized_ground_truth = np.zeros((self.number_of_buckets, 1))
+            normalized_gt_bucket = round(raw_ground_truth["survival_time_months"] / self.months_per_gt_bucket)
+            normalized_ground_truth[normalized_gt_bucket][0] = raw_ground_truth["event"]
+        else:
+            normalized_ground_truth = None
         return normalized_ground_truth
 
     def get_all_ground_truth(self):
@@ -618,15 +641,18 @@ class LungCancerDataset(ChaimeleonData):
         current_case = list(self.prepared_cases[idx].values())[0]
         current_case_image = current_case["image"].astype(np.float32)
         current_metadata = current_case["metadata"]
-        current_ground_truth = np.squeeze(current_case["ground_truth"])
         current_survival = current_case["survival"]
+        if self.split_type == 'test':
+            random.seed(self.random_seed+idx)
+            torch.manual_seed(self.random_seed+idx)
         if current_case["ground_truth"] is not None:
+            current_ground_truth = np.squeeze(current_case["ground_truth"])
             return (
                 self.image_transformations(current_case_image),
                 self.metatadata_transformations(current_metadata),
                 (torch.FloatTensor(current_ground_truth), current_survival),
             )
-        if current_case["ground_truth"] is not None:
+        else:
             return (
                 self.image_transformations(current_case_image),
                 self.metatadata_transformations(current_metadata),
