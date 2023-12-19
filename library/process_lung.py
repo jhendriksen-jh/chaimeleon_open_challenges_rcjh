@@ -100,5 +100,5 @@ class Lungcancerosprediction(ClassificationAlgorithm):
 
 
 if __name__ == "__main__":
-    # Lungcancerosprediction().predict()
-    Lungcancerosprediction().predict(image_path="./datasets/eval_lung/case_0093.mha", clinical_info_path="./datasets/eval_lung/case_0093.json")
+    Lungcancerosprediction().predict()
+    # Lungcancerosprediction().predict(image_path="./datasets/eval_lung/case_0093.mha", clinical_info_path="./datasets/eval_lung/case_0093.json")

@@ -28,6 +28,8 @@ from library.models import (
     ProstateCombinedModelV1_1Tiny,
     ProstateCombinedResnet18PretrainedModel,
     ProstateImageResnet18PretrainedModel,
+    ProstateCombinedResnet18PretrainedModel_V2_Grid,
+    ProstateCombinedResnet18PretrainedModel_V2_1_Grid,
     get_number_of_parameters,
     LungMetadataModel,
     LungImageModel,
@@ -58,8 +60,7 @@ def prostate_scoring_function(targets, outputs, preds):
     specificity = tn / (tn + fp)
     balanced_accuracy = balanced_accuracy_score(targets, preds)
     score = (
-        (0.2 * roc_auc)
-        + (0.2 * auc_chai)
+        (0.4 * auc_chai)
         + (0.2 * sensitivity)
         + (0.2 * specificity)
         + (0.2 * balanced_accuracy)
@@ -232,13 +233,14 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             starting_lr = 0.005
             # slices = [1, 3, 6, 9, 18]
             input_slices = 3
-            for starting_lr, factor in [(0.01, 0.75), (0.01, 0.25), (0.007, 0.5), (0.003, 0.75)]:
+            for starting_lr, factor in [(0.01, 0.5), (0.01, 0.1), (0.007, 0.5), (0.003, 0.5), (0.0005, 0.5)]:
                 for frozen_layers in [
                     [],
                     ["layer2", "layer3"],
                 ]:
                     for pre_model in [
-                        ProstateCombinedResnet18PretrainedModel,
+                        ProstateCombinedResnet18PretrainedModel_V2_1_Grid,
+                        ProstateCombinedResnet18PretrainedModel_V2_Grid,
                     ]:
                         train_dataset = ProstateCancerDataset(
                             data_directory,
@@ -269,7 +271,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
                         print(
                             f"\n######## Training {combo_model.__class__.__name__} {frozen_layers} frozen {starting_lr} lr {factor} factor - {get_number_of_parameters(combo_model):_} ########\n"
                         )
-                        training_dir = f"./tuning_exp_training_details/pretrained_model_raw_metadata/{combo_model.__class__.__name__}/{training_timestamp}/fixed_augmentation_less_extreme/{frozen_layers}_frozen/{starting_lr}_starting_learning_rate_{factor}_factor/"
+                        training_dir = f"./tuning_exp_training_details/pretrained_model_raw_metadata/{combo_model.__class__.__name__}/{training_timestamp}/limited_augmentation/{frozen_layers}_frozen/{starting_lr}_starting_learning_rate_{factor}_factor/"
                         os.makedirs(training_dir, exist_ok=True)
                         combo_optimizer = create_optimizer(combo_model, lr=starting_lr)
                         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -458,8 +460,8 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         # ProstateImageTrainer.plot_loss()
         # ProstateMetadataTrainer.plot_acc()
         # ProstateMetadataTrainer.plot_loss()
-        ProstateCombinedPretrainedTrainer.plot_acc()
-        ProstateCombinedPretrainedTrainer.plot_loss()
+        # ProstateCombinedPretrainedTrainer.plot_acc()
+        # ProstateCombinedPretrainedTrainer.plot_loss()
         # ProstateCombinedTrainer.plot_acc()
         # ProstateCombinedTrainer.plot_loss()
 
@@ -469,7 +471,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         random_seed = 42024
         training_batch_size = 24
         starting_lr = 0.001
-        patience = 30
+        patience = 50
         factor = 0.5
         number_of_buckets = 400
         months_per_gt_bucket = 0.5
@@ -479,14 +481,12 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         train_loader = create_dataloader(train_dataset, batch_size=training_batch_size)
         val_loader = create_dataloader(val_dataset, batch_size=training_batch_size)
 
-        num_epochs = 300
+        num_epochs = 600
         training_timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         for frozen_layers in [
                     [],
-                    ["layer1", "layer2", "layer3"],
                     ["layer2", "layer3"],
-                    ["layer1", "layer2", "layer3", "layer4"],
                 ]:
             lung_model = LungCombinedResnet18PretrainedModel(frozen_layers=frozen_layers,number_of_buckets=number_of_buckets)
 
@@ -495,10 +495,10 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
                 f"\n######## Training Lung Model - {get_number_of_parameters(lung_model)} - {frozen_layers} frozen - {number_of_buckets} buckets ########\n"
             )
 
-            for starting_lr in [0.01, 0.003]:
+            for starting_lr in [0.05, 0.01, 0.003, 0.007]:
                 print(f"Starting LR: {starting_lr}")
 
-                training_dir = f"./lung_training/metadata_augmentation/{lung_model.__class__.__name__}/{training_timestamp}/{number_of_buckets}_buckets_{months_per_gt_bucket}_months/{frozen_layers}/{starting_lr}_starting_lr/"
+                training_dir = f"./lung_training/limited_augmentation/{lung_model.__class__.__name__}/{training_timestamp}/{number_of_buckets}_buckets_{months_per_gt_bucket}_months/{frozen_layers}/{starting_lr}_starting_lr/"
                 os.makedirs(training_dir, exist_ok=True)
 
                 metadata_optimizer = create_optimizer(lung_model, lr=starting_lr)

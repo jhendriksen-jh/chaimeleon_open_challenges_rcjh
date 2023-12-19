@@ -24,6 +24,6 @@ RUN pip install -r requirements.txt
 RUN pip install SimpleITK evalutils
 
 COPY --chown=user:user ./../../library/ /opt/app/library/
-COPY --chown=user:user datasets/eval_lung/ /opt/app/datasets/eval_lung/
+# COPY --chown=user:user datasets/eval_lung/ /opt/app/datasets/eval_lung/
 
 ENTRYPOINT [ "python", "-m", "library.process_lung" ]

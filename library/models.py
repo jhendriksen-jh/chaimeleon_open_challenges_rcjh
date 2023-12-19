@@ -3,7 +3,7 @@ Model class definitions
 """
 import torch
 import torch.nn as nn
-from torchvision import models
+from torchvision import models, transforms
 import pickle as pkl
 
 
@@ -730,6 +730,227 @@ class ProstateCombinedResnet18PretrainedModel(nn.Module):
             image_in2 = combo_out[:, 1][:, None, None, None] * image[:, 1][:, None]
             image_in3 = combo_out[:, 2][:, None, None, None] * image[:, 2][:, None]
             image = torch.cat((image_in1, image_in2, image_in3), dim=1)
+
+        # image layers
+        for layer_name, resnet_layer in self.resnet_layers.items():
+            image = resnet_layer(image)
+            if layer_name == "avgpool":
+                image = image.reshape(image.size(0), -1)
+            if layer_name == "layer4":
+                image = self.image_drop2d(image)
+
+        image = self.relu(image)
+
+        output = self.meta_drop(image)
+        output = self.final_fc2(output)
+
+        return output
+
+
+class ProstateCombinedResnet18PretrainedModel_V2_Grid(nn.Module):
+    def __init__(self, frozen_layers=[], eval_mode=False):
+        super(ProstateCombinedResnet18PretrainedModel_V2_Grid, self).__init__()
+        # import pudb; pudb.set_trace()
+        self.eval_mode = eval_mode
+        self.model_data_type = "both"
+        self.relu = nn.ReLU(inplace=True)
+
+        # self.resnet18 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT, progress=True)
+        try:
+            with open("./library/resnet18.pkl", "rb") as f:
+                self.resnet18 = pkl.load(f)
+        except FileNotFoundError:
+            with open("../library/resnet18.pkl", "rb") as f:
+                self.resnet18 = pkl.load(f)
+        resnet_layer_list = list(self.resnet18.children())
+        self.resnet_layers = {
+            "conv1": 0,
+            "bn1": 1,
+            "relu": 2,
+            "maxpool": 3,
+            "layer1": 4,
+            "layer2": 5,
+            "layer3": 6,
+            "layer4": 7,
+            "avgpool": 8,
+            "fc": 9,
+        }
+        self.resnet_layers = {
+            k: resnet_layer_list[v] for k, v in self.resnet_layers.items()
+        }
+
+        for layer in frozen_layers:
+            for param in self.resnet_layers[layer].parameters():
+                param.requires_grad = False
+        # layer3 -> 256x16x16
+
+        # metadata layers
+        self.meta_fc1 = nn.Linear(in_features=2, out_features=16)
+        self.meta_fc2 = nn.Linear(in_features=16, out_features=32)
+        self.meta_fc3 = nn.Linear(in_features=32, out_features=64)
+        self.meta_fc4 = nn.Linear(in_features=64, out_features=128)
+        self.meta_fc5 = nn.Linear(in_features=128, out_features=32)
+        self.meta_drop = nn.Dropout(p=0.05)
+
+        self.image_drop = nn.Dropout(p=0.05)
+        self.image_drop2d = nn.Dropout2d(p=0.01)
+
+        self.combo_fc = nn.Linear(in_features=32, out_features=27)
+
+        self.final_fc1 = nn.Linear(in_features=512, out_features=256)
+        self.final_fc2 = nn.Linear(in_features=256, out_features=2)
+
+        self.resnet_layers["fc"] = self.final_fc1
+
+        self.convert_grid = transforms.Compose([transforms.Resize(256, antialias=False, interpolation=transforms.InterpolationMode.NEAREST)])
+
+    def forward(self, data):
+        # import pudb; pudb.set_trace()
+        image, meta = data
+        # meta layers
+        meta_out = self.meta_fc1(meta)
+        meta_out = self.relu(meta_out)
+
+        meta_out = self.meta_fc2(meta_out)
+        meta_res1 = meta_out
+        meta_out = self.relu(meta_out)
+
+        meta_out = self.meta_fc3(meta_out)
+        meta_out = self.relu(meta_out)
+
+        meta_out = self.meta_fc4(meta_out)
+        meta_out = self.meta_drop(meta_out)
+        meta_out = self.relu(meta_out)
+
+        meta_out = self.meta_fc5(meta_out)
+        meta_out += meta_res1
+        # meta_out = self.meta_drop(meta_out)
+        combo_in2 = meta_out
+
+        # combo layers
+        combo_out = self.combo_fc(combo_in2)
+        combo_out = combo_out.view((combo_out.shape[0],3,3,3))
+        combo_grid = self.convert_grid(combo_out)
+
+        enhanced_images = []
+        for i in range(image.shape[1]):
+            enhanced_image = (combo_grid[:,i] * image[:, i])[:, None]
+            enhanced_images.append(enhanced_image)
+        image = torch.cat(enhanced_images, dim=1)
+
+        # image layers
+        for layer_name, resnet_layer in self.resnet_layers.items():
+            image = resnet_layer(image)
+            if layer_name == "avgpool":
+                image = image.reshape(image.size(0), -1)
+            if layer_name == "layer4":
+                image = self.image_drop2d(image)
+
+        image = self.relu(image)
+
+        output = self.meta_drop(image)
+        output = self.final_fc2(output)
+
+        return output
+
+
+class ProstateCombinedResnet18PretrainedModel_V2_1_Grid(nn.Module):
+    def __init__(self, frozen_layers=[], eval_mode=False):
+        super(ProstateCombinedResnet18PretrainedModel_V2_1_Grid, self).__init__()
+        # import pudb; pudb.set_trace()
+        self.eval_mode = eval_mode
+        self.model_data_type = "both"
+        self.relu = nn.ReLU(inplace=True)
+
+        # self.resnet18 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT, progress=True)
+        try:
+            with open("./library/resnet18.pkl", "rb") as f:
+                self.resnet18 = pkl.load(f)
+        except FileNotFoundError:
+            with open("../library/resnet18.pkl", "rb") as f:
+                self.resnet18 = pkl.load(f)
+        resnet_layer_list = list(self.resnet18.children())
+        self.resnet_layers = {
+            "conv1": 0,
+            "bn1": 1,
+            "relu": 2,
+            "maxpool": 3,
+            "layer1": 4,
+            "layer2": 5,
+            "layer3": 6,
+            "layer4": 7,
+            "avgpool": 8,
+            "fc": 9,
+        }
+        self.resnet_layers = {
+            k: resnet_layer_list[v] for k, v in self.resnet_layers.items()
+        }
+
+        for layer in frozen_layers:
+            for param in self.resnet_layers[layer].parameters():
+                param.requires_grad = False
+        # layer3 -> 256x16x16
+
+        # metadata layers
+        self.meta_fc1 = nn.Linear(in_features=2, out_features=16)
+        self.meta_fc2 = nn.Linear(in_features=16, out_features=32)
+        self.meta_fc3 = nn.Linear(in_features=32, out_features=128)
+        self.meta_fc4 = nn.Linear(in_features=128, out_features=768)
+        self.meta_fc5 = nn.Linear(in_features=768, out_features=32)
+        self.meta_drop = nn.Dropout(p=0.05)
+
+        self.image_drop = nn.Dropout(p=0.05)
+        self.image_drop2d = nn.Dropout2d(p=0.01)
+
+        self.combo_fc = nn.Linear(in_features=32, out_features=27)
+
+        self.final_fc1 = nn.Linear(in_features=512, out_features=256)
+        self.final_fc2 = nn.Linear(in_features=256, out_features=2)
+
+        self.resnet_layers["fc"] = self.final_fc1
+
+        self.convert_grid = transforms.Compose([transforms.Resize(256, antialias=False, interpolation=transforms.InterpolationMode.NEAREST)])
+        self.resize_16_16 = transforms.Compose([transforms.Resize(16, antialias=True)])
+        self.flatten = nn.Flatten()
+
+    def forward(self, data):
+        # import pudb; pudb.set_trace()
+        image, meta = data
+        # meta layers
+        meta_out = self.meta_fc1(meta)
+        meta_out = self.relu(meta_out)
+
+        meta_out = self.meta_fc2(meta_out)
+        meta_res1 = meta_out
+        meta_out = self.relu(meta_out)
+
+        meta_out = self.meta_fc3(meta_out)
+        meta_out = self.relu(meta_out)
+
+        meta_out = self.meta_fc4(meta_out)
+
+        image_meta_combiner = self.resize_16_16(image)
+        image_meta_combiner = self.flatten(image_meta_combiner).view((meta_out.shape))
+        meta_out += image_meta_combiner
+
+        meta_out = self.meta_drop(meta_out)
+        meta_out = self.relu(meta_out)
+
+        meta_out = self.meta_fc5(meta_out)
+        meta_out += meta_res1
+        # meta_out = self.meta_drop(meta_out)
+        combo_in2 = meta_out
+
+        # combo layers
+        combo_out = self.combo_fc(combo_in2)
+        combo_out = combo_out.view((combo_out.shape[0],3,3,3))
+        combo_grid = self.convert_grid(combo_out)
+
+        enhanced_images = []
+        for i in range(image.shape[1]):
+            enhanced_image = (combo_grid[:,i] * image[:, i])[:, None]
+            enhanced_images.append(enhanced_image)
+        image = torch.cat(enhanced_images, dim=1)
 
         # image layers
         for layer_name, resnet_layer in self.resnet_layers.items():
