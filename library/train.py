@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 # PROSTATE_LOSS = torch.nn.BCEWithLogitsLoss(reduction="mean")
 PROSTATE_LOSS = torch.nn.BCEWithLogitsLoss(
-    reduction="mean", pos_weight=torch.tensor([16], device="cuda")
+    reduction="mean", pos_weight=torch.tensor([4], device="cuda")
 )
 # LUNG_LOSS = torch.nn.MSELoss(reduction="mean")
 LUNG_LOSS = torch.nn.MultiLabelSoftMarginLoss(reduction="sum")
@@ -46,6 +46,7 @@ class Trainer:
         evaluation_function=None,
         scheduler=None,
         training_dir="./",
+        event_filter=False,
     ):
         self.model = model.to(device)
         self.train_loader = train_loader
@@ -56,6 +57,7 @@ class Trainer:
         self.scheduler = scheduler
         self.eval_function = evaluation_function
         self.training_dir = training_dir
+        self.event_filter = event_filter
         self.train_loss = []
         self.val_loss = []
         self.train_acc = []
@@ -143,7 +145,14 @@ class Trainer:
                 targets = targets.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.loss_fn(output, targets)
+            if not self.event_filter:
+                loss = self.loss_fn(output, targets)
+            else:
+                batch_inds = []
+                for batch_ind, (cur_output, cur_targets, cur_pfs) in enumerate(zip(output, targets, pfs)):
+                    if cur_pfs[0]:
+                        batch_inds.append(batch_ind)
+                loss = self.loss_fn(output[batch_inds], targets[batch_inds])
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.item()
@@ -179,7 +188,15 @@ class Trainer:
                 else:
                     targets = targets.to(self.device)
                 output = self.model(data)
-                loss = self.loss_fn(output, targets)
+                if not self.event_filter:
+                    loss = self.loss_fn(output, targets)
+                else:
+                    batch_inds = []
+                    for batch_ind, (cur_output, cur_targets, cur_pfs) in enumerate(zip(output, targets, pfs)):
+                        if cur_pfs[0]:
+                            batch_inds.append(batch_ind)
+                    loss = self.loss_fn(output[batch_inds], targets[batch_inds])
+
                 val_loss += loss.item()
                 pred = output.argmax(dim=1, keepdim=True)
                 val_acc += (

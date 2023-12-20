@@ -13,6 +13,7 @@ from evalutils.validators import (
 from library.models import LungCombinedResnet18PretrainedModel
 from library.datasets import LungCancerDataset, create_dataloader
 
+
 class Lungcancerosprediction(ClassificationAlgorithm):
     def __init__(self):
         super().__init__(
@@ -42,7 +43,7 @@ class Lungcancerosprediction(ClassificationAlgorithm):
     def predict(self, image_path=None, clinical_info_path=None):
         """
         Your algorithm goes here
-        """        
+        """
         if image_path is None:
             image_path = self.image_input_path
         if clinical_info_path is None:
@@ -64,11 +65,10 @@ class Lungcancerosprediction(ClassificationAlgorithm):
         for data in eval_loader:
             (eval_images, self.clinical_info) = data
 
-
         # read image
         # image = sitk.ReadImage(str(self.image_input_path))
         clinical_info = self.clinical_info
-        print('Clinical info: ')
+        print("Clinical info: ")
         print(clinical_info)
 
         # TODO: Add your inference code here
@@ -89,13 +89,13 @@ class Lungcancerosprediction(ClassificationAlgorithm):
         outputs = model((eval_images, self.clinical_info.squeeze()))
         predictions = torch.argmax(outputs, dim=1)
         predicted_bucket = predictions[0].item()
-        print('Predicted bucket: ', predicted_bucket)
-        overall_survival = predicted_bucket*months_per_gt_bucket
-    
-        print('OS (months): ', overall_survival)
+        print("Predicted bucket: ", predicted_bucket)
+        overall_survival = predicted_bucket * months_per_gt_bucket
+
+        print("OS (months): ", overall_survival)
 
         # save case-level class
-        with open(str(self.os_output_file), 'w') as f:
+        with open(str(self.os_output_file), "w") as f:
             json.dump(overall_survival, f)
 
 

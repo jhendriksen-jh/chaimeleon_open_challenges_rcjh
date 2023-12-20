@@ -35,6 +35,7 @@ from library.models import (
     LungImageModel,
     LungCombinedModel,
     LungCombinedResnet18PretrainedModel,
+    LungCombinedResnet18PretrainedModelV2AllMeta,
 )
 from library.train import (
     Trainer,
@@ -90,7 +91,7 @@ def lung_scoring_function(months_per_gt_bucket, targets, outputs):
     ground_truths = []
     ground_truth_events = []
     for (event, survival_time_in_months), raw_prediction in zip(targets, outputs):
-        os_months = raw_prediction*months_per_gt_bucket
+        os_months = raw_prediction * months_per_gt_bucket
         prediction = float(os_months)
         predictions.append(prediction)
         ground_truth = float(survival_time_in_months)
@@ -233,215 +234,122 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             starting_lr = 0.005
             # slices = [1, 3, 6, 9, 18]
             input_slices = 3
-            for starting_lr, factor in [(0.01, 0.5), (0.01, 0.1), (0.007, 0.5), (0.003, 0.5), (0.0005, 0.5)]:
-                for frozen_layers in [
-                    [],
-                    ["layer2", "layer3"],
+            for patience in [60, 30]:
+                for starting_lr, factor in [
+                    (0.05, 0.25),
+                    (0.01, 0.5),
+                    (0.01, 0.1),
+                    (0.007, 0.5),
+                    (0.003, 0.5),
+                    (0.0005, 0.5),
                 ]:
-                    for pre_model in [
-                        ProstateCombinedResnet18PretrainedModel_V2_1_Grid,
-                        ProstateCombinedResnet18PretrainedModel_V2_Grid,
+                    for frozen_layers in [
+                        [],
+                        ["layer2", "layer3"],
                     ]:
-                        train_dataset = ProstateCancerDataset(
-                            data_directory,
-                            input_slice_count=input_slices,
-                            random_seed=random_seed,
-                        )
-                        val_dataset = ProstateCancerDataset(
-                            data_directory,
-                            split_type="val",
-                            input_slice_count=input_slices,
-                            random_seed=random_seed,
-                        )
-                        train_gt_details = get_prostate_gt_split(train_dataset)
-                        print(
-                            f"\n\nTraining Prostate Cancer Dataset - {train_gt_details[0]} low risk cases, {train_gt_details[1]} high risk cases, {train_gt_details[2]} high risk ratio"
-                        )
-                        val_gt_details = get_prostate_gt_split(val_dataset)
-                        print(
-                            f"Validation Prostate Cancer Dataset - {val_gt_details[0]} low risk cases, {val_gt_details[1]} high risk cases, {val_gt_details[2]} high risk ratio"
-                        )
-
-                        train_loader = create_dataloader(
-                            train_dataset, batch_size=training_batch_size
-                        )
-                        val_loader = create_dataloader(val_dataset, batch_size=16)
-
-                        combo_model = pre_model(frozen_layers=frozen_layers)
-                        print(
-                            f"\n######## Training {combo_model.__class__.__name__} {frozen_layers} frozen {starting_lr} lr {factor} factor - {get_number_of_parameters(combo_model):_} ########\n"
-                        )
-                        training_dir = f"./tuning_exp_training_details/pretrained_model_raw_metadata/{combo_model.__class__.__name__}/{training_timestamp}/limited_augmentation/{frozen_layers}_frozen/{starting_lr}_starting_learning_rate_{factor}_factor/"
-                        os.makedirs(training_dir, exist_ok=True)
-                        combo_optimizer = create_optimizer(combo_model, lr=starting_lr)
-                        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                            combo_optimizer,
-                            mode="max",
-                            factor=factor,
-                            patience=patience,
-                            verbose=True,
-                        )
-                        ProstateCombinedPretrainedTrainer = Trainer(
-                            combo_model,
-                            train_loader,
-                            val_loader,
-                            PROSTATE_LOSS,
-                            combo_optimizer,
-                            device,
-                            evaluation_function=prostate_scoring_function,
-                            scheduler=scheduler,
-                            training_dir=training_dir,
-                        )
-                        training_details = ProstateCombinedPretrainedTrainer.train(
-                            num_epochs, training_timestamp=training_timestamp
-                        )
-                        training_details.update(
-                            {
-                                "total_epochs": num_epochs,
-                                "factor": factor,
-                                "patience": patience,
-                                "model_name": f"{combo_model.__class__.__name__}_{input_slices}_slice",
-                                "training_batch_size": training_batch_size,
-                                "timestamp": training_timestamp,
-                                "starting_lr": starting_lr,
-                                "input_slices": input_slices,
-                                "random_seed": random_seed,
-                                "frozen_layers": frozen_layers,
-                            }
-                        )
-                        best_model_performances.append(
-                            f"{combo_model.__class__.__name__}_{frozen_layers}_frozen_{starting_lr}_learning_rate - best_epoch: {training_details['best_epoch']} - best_acc: {training_details['best_val_acc']} - best_score: {training_details['best_val_score']} - {get_number_of_parameters(combo_model):_} params"
-                        )
-                        with open(f"{training_dir}/training_details.json", "w") as f:
-                            json.dump(training_details, f, indent=4)
-                        print(
-                            f"Training {combo_model.__class__.__name__} averaged {sum(ProstateCombinedPretrainedTrainer.train_time)/num_epochs:.2f}s per epoch"
-                        )
-                        del combo_model
-                        with open(
-                            f"./{training_timestamp}_overall_exp_agg_results.txt", "w"
-                        ) as f:
+                        for pre_model in [
+                            ProstateCombinedResnet18PretrainedModel_V2_1_Grid,
+                            ProstateCombinedResnet18PretrainedModel_V2_Grid,
+                            ProstateCombinedResnet18PretrainedModel,
+                        ]:
+                            train_dataset = ProstateCancerDataset(
+                                data_directory,
+                                input_slice_count=input_slices,
+                                random_seed=random_seed,
+                            )
+                            val_dataset = ProstateCancerDataset(
+                                data_directory,
+                                split_type="val",
+                                input_slice_count=input_slices,
+                                random_seed=random_seed,
+                            )
+                            train_gt_details = get_prostate_gt_split(train_dataset)
                             print(
-                                f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
+                                f"\n\nTraining Prostate Cancer Dataset - {train_gt_details[0]} low risk cases, {train_gt_details[1]} high risk cases, {train_gt_details[2]} high risk ratio"
                             )
-                            f.write(
-                                f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
+                            val_gt_details = get_prostate_gt_split(val_dataset)
+                            print(
+                                f"Validation Prostate Cancer Dataset - {val_gt_details[0]} low risk cases, {val_gt_details[1]} high risk cases, {val_gt_details[2]} high risk ratio"
                             )
-                            print(train_details)
-                            f.write(train_details)
-                            print(val_details)
-                            f.write(val_details)
-                            for best_model_performance in best_model_performances:
-                                print(best_model_performance)
-                                f.write(f"\n{best_model_performance}")
 
-            # training_timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-            # training_batch_size = 48
-            # factor = 0.75
-            # patience = 60
-            # starting_lr = 0.005
-            # slices = [1, 3, 6, 9, 18]
-            # for starting_lr in [0.01, 0.003, 0.001, 0.0003]:
-            #     for input_slices in slices:
-            #         for model in [
-            #             ProstateCombinedModelV1_1Tiny,
-            #             ProstateCombinedModelV1Tiny,
-            #         ]:
-            #             train_dataset = ProstateCancerDataset(
-            #                 data_directory,
-            #                 input_slice_count=input_slices,
-            #                 random_seed=random_seed,
-            #             )
-            #             val_dataset = ProstateCancerDataset(
-            #                 data_directory,
-            #                 split_type="val",
-            #                 input_slice_count=input_slices,
-            #                 random_seed=random_seed,
-            #             )
-            #             train_gt_details = get_prostate_gt_split(train_dataset)
-            #             print(
-            #                 f"\n\nTraining Prostate Cancer Dataset - {train_gt_details[0]} low risk cases, {train_gt_details[1]} high risk cases, {train_gt_details[2]} high risk ratio"
-            #             )
-            #             val_gt_details = get_prostate_gt_split(val_dataset)
-            #             print(
-            #                 f"Validation Prostate Cancer Dataset - {val_gt_details[0]} low risk cases, {val_gt_details[1]} high risk cases, {val_gt_details[2]} high risk ratio"
-            #             )
+                            train_loader = create_dataloader(
+                                train_dataset, batch_size=training_batch_size
+                            )
+                            val_loader = create_dataloader(val_dataset, batch_size=16)
 
-            #             train_loader = create_dataloader(
-            #                 train_dataset, batch_size=training_batch_size
-            #             )
-            #             val_loader = create_dataloader(val_dataset, batch_size=16)
+                            combo_model = pre_model(frozen_layers=frozen_layers)
+                            print(
+                                f"\n######## Training {combo_model.__class__.__name__} {frozen_layers} frozen {starting_lr} lr {factor} factor - {get_number_of_parameters(combo_model):_} ########\n"
+                            )
+                            training_dir = f"./mega_tuning_exp_training_details/pretrained_model_raw_metadata/{combo_model.__class__.__name__}/{training_timestamp}/limited_augmentation_reduced_loss_bias_16_4/{frozen_layers}_frozen/{starting_lr}_starting_learning_rate_{factor}_factor_{patience}_patience/"
+                            os.makedirs(training_dir, exist_ok=True)
+                            combo_optimizer = create_optimizer(
+                                combo_model, lr=starting_lr
+                            )
+                            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                                combo_optimizer,
+                                mode="max",
+                                factor=factor,
+                                patience=patience,
+                                verbose=True,
+                            )
+                            ProstateCombinedPretrainedTrainer = Trainer(
+                                combo_model,
+                                train_loader,
+                                val_loader,
+                                PROSTATE_LOSS,
+                                combo_optimizer,
+                                device,
+                                evaluation_function=prostate_scoring_function,
+                                scheduler=scheduler,
+                                training_dir=training_dir,
+                            )
+                            training_details = ProstateCombinedPretrainedTrainer.train(
+                                num_epochs, training_timestamp=training_timestamp
+                            )
+                            training_details.update(
+                                {
+                                    "total_epochs": num_epochs,
+                                    "factor": factor,
+                                    "patience": patience,
+                                    "model_name": f"{combo_model.__class__.__name__}_{input_slices}_slice",
+                                    "training_batch_size": training_batch_size,
+                                    "timestamp": training_timestamp,
+                                    "starting_lr": starting_lr,
+                                    "input_slices": input_slices,
+                                    "random_seed": random_seed,
+                                    "frozen_layers": frozen_layers,
+                                }
+                            )
+                            best_model_performances.append(
+                                f"{combo_model.__class__.__name__}_{frozen_layers}_frozen_{starting_lr}_learning_rate_{patience} - best_epoch: {training_details['best_epoch']} - best_acc: {training_details['best_val_acc']} - best_score: {training_details['best_val_score']} - {get_number_of_parameters(combo_model):_} params"
+                            )
+                            with open(
+                                f"{training_dir}/training_details.json", "w"
+                            ) as f:
+                                json.dump(training_details, f, indent=4)
+                            print(
+                                f"Training {combo_model.__class__.__name__} averaged {sum(ProstateCombinedPretrainedTrainer.train_time)/num_epochs:.2f}s per epoch"
+                            )
+                            del combo_model
+                            with open(
+                                f"./{training_timestamp}_overall_exp_agg_results.txt",
+                                "w",
+                            ) as f:
+                                print(
+                                    f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
+                                )
+                                f.write(
+                                    f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
+                                )
+                                print(train_details)
+                                f.write(train_details)
+                                print(val_details)
+                                f.write(val_details)
+                                for best_model_performance in best_model_performances:
+                                    print(best_model_performance)
+                                    f.write(f"\n{best_model_performance}")
 
-            #             combo_model = model(input_slice_count=input_slices)
-            #             # combo_model = ProstateCombinedResnet18PretrainedModel(frozen_layers=frozen_layers)
-            #             print(
-            #                 f"\n######## Training {combo_model.__class__.__name__} {input_slices} slices - {get_number_of_parameters(combo_model):_} ########\n"
-            #             )
-            #             training_dir = f"./tuning_exp_training_details/combined_model_raw_metadata/{combo_model.__class__.__name__}/{training_timestamp}/{input_slices}_input_slices/{starting_lr}_starting_learning_rate/"
-            #             os.makedirs(training_dir, exist_ok=True)
-            #             combo_optimizer = create_optimizer(combo_model, lr=starting_lr)
-            #             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            #                 combo_optimizer,
-            #                 mode="max",
-            #                 factor=factor,
-            #                 patience=patience,
-            #                 verbose=True,
-            #             )
-            #             ProstateCombinedTrainer = Trainer(
-            #                 combo_model,
-            #                 train_loader,
-            #                 val_loader,
-            #                 PROSTATE_LOSS,
-            #                 combo_optimizer,
-            #                 device,
-            #                 evaluation_function=prostate_scoring_function,
-            #                 scheduler=scheduler,
-            #                 training_dir=training_dir,
-            #             )
-            #             training_details = ProstateCombinedTrainer.train(
-            #                 num_epochs, training_timestamp=training_timestamp
-            #             )
-            #             training_details.update(
-            #                 {
-            #                     "total_epochs": num_epochs,
-            #                     "factor": factor,
-            #                     "patience": patience,
-            #                     "model_name": f"{combo_model.__class__.__name__}_{input_slices}_slice",
-            #                     "training_batch_size": training_batch_size,
-            #                     "timestamp": training_timestamp,
-            #                     "starting_lr": starting_lr,
-            #                     "input_slices": input_slices,
-            #                     "random_seed": random_seed,
-            #                 }
-            #             )
-            #             best_model_performances.append(
-            #                 f"{combo_model.__class__.__name__}_{input_slices}_slices_{starting_lr}_learning_rate - best_epoch: {training_details['best_epoch']} - best_acc: {training_details['best_val_acc']} - best_score: {training_details['best_val_score']} - {get_number_of_parameters(combo_model):_} params"
-            #             )
-            #             with open(f"{training_dir}/training_details.json", "w") as f:
-            #                 json.dump(training_details, f, indent=4)
-            #             print(
-            #                 f"Training {combo_model.__class__.__name__} averaged {sum(ProstateCombinedTrainer.train_time)/num_epochs:.2f}s per epoch"
-            #             )
-            #             del combo_model
-            #             with open(
-            #                 f"./{training_timestamp}_overall_exp_agg_results.txt", "w"
-            #             ) as f:
-            #                 print(
-            #                     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
-            #                 )
-            #                 f.write(
-            #                     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
-            #                 )
-            #                 print(train_details)
-            #                 f.write(train_details)
-            #                 print(val_details)
-            #                 f.write(val_details)
-            #                 for best_model_performance in best_model_performances:
-            #                     print(best_model_performance)
-            #                     f.write(f"\n{best_model_performance}")
-
-            #     # ProstateCombinedTrainer.plot_acc()
-            #     # ProstateCombinedTrainer.plot_loss()
         with open(f"./{training_timestamp}_overall_exp_agg_results.txt", "w") as f:
             print(
                 f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
@@ -456,107 +364,151 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             for best_model_performance in best_model_performances:
                 print(best_model_performance)
                 f.write(f"\n{best_model_performance}")
-        # ProstateImageTrainer.plot_acc()
-        # ProstateImageTrainer.plot_loss()
-        # ProstateMetadataTrainer.plot_acc()
-        # ProstateMetadataTrainer.plot_loss()
-        # ProstateCombinedPretrainedTrainer.plot_acc()
-        # ProstateCombinedPretrainedTrainer.plot_loss()
-        # ProstateCombinedTrainer.plot_acc()
-        # ProstateCombinedTrainer.plot_loss()
 
     elif train and cancer == "lung":
         # import pudb; pudb.set_trace()
         best_model_performances = []
         random_seed = 42024
-        training_batch_size = 24
+        training_batch_size = 48
         starting_lr = 0.001
         patience = 50
         factor = 0.5
         number_of_buckets = 400
         months_per_gt_bucket = 0.5
-        train_dataset = LungCancerDataset(data_directory, random_seed=random_seed,number_of_buckets=number_of_buckets, months_per_gt_bucket=months_per_gt_bucket)
-        val_dataset = LungCancerDataset(data_directory, split_type="val", random_seed=random_seed,number_of_buckets=number_of_buckets, months_per_gt_bucket=months_per_gt_bucket)
         device = get_device()
-        train_loader = create_dataloader(train_dataset, batch_size=training_batch_size)
-        val_loader = create_dataloader(val_dataset, batch_size=training_batch_size)
 
-        num_epochs = 600
+        num_epochs = 500
         training_timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         for frozen_layers in [
-                    [],
-                    ["layer2", "layer3"],
+            [],
+            ["layer2", "layer3"],
+        ]:
+            for number_of_buckets, months_per_gt_bucket in [
+                (400, 0.5),
+                (200, 1),
+                (100, 1.5),
+                (200, 0.75),
+            ]:
+                for lung_model, categorical_metadata in [
+                    (
+                        LungCombinedResnet18PretrainedModel(
+                            frozen_layers=frozen_layers,
+                            number_of_buckets=number_of_buckets,
+                        ),
+                        ["gender", "smoking_status"],
+                    ),
+                    (
+                        LungCombinedResnet18PretrainedModelV2AllMeta(
+                            frozen_layers=frozen_layers,
+                            number_of_buckets=number_of_buckets,
+                        ),
+                        [
+                            "gender",
+                            "smoking_status",
+                            "clinical_category",
+                            "regional_nodes_category",
+                            "metastasis_category",
+                        ],
+                    ),
                 ]:
-            lung_model = LungCombinedResnet18PretrainedModel(frozen_layers=frozen_layers,number_of_buckets=number_of_buckets)
+                    train_dataset = LungCancerDataset(
+                        data_directory,
+                        random_seed=random_seed,
+                        number_of_buckets=number_of_buckets,
+                        months_per_gt_bucket=months_per_gt_bucket,
+                        categorical_metadata=categorical_metadata,
+                    )
+                    val_dataset = LungCancerDataset(
+                        data_directory,
+                        split_type="val",
+                        random_seed=random_seed,
+                        number_of_buckets=number_of_buckets,
+                        months_per_gt_bucket=months_per_gt_bucket,
+                        categorical_metadata=categorical_metadata,
+                    )
+                    train_loader = create_dataloader(
+                        train_dataset, batch_size=training_batch_size
+                    )
+                    val_loader = create_dataloader(
+                        val_dataset, batch_size=training_batch_size
+                    )
 
-        
-            print(
-                f"\n######## Training Lung Model - {get_number_of_parameters(lung_model)} - {frozen_layers} frozen - {number_of_buckets} buckets ########\n"
-            )
+                    print(
+                        f"\n######## Training Lung Model - {get_number_of_parameters(lung_model)} - {frozen_layers} frozen - {number_of_buckets} buckets ########\n"
+                    )
+                    for starting_lr in [0.05, 0.01, 0.003, 0.007]:
+                        event_filter = True
+                        print(f"Starting LR: {starting_lr}")
 
-            for starting_lr in [0.05, 0.01, 0.003, 0.007]:
-                print(f"Starting LR: {starting_lr}")
+                        training_dir = f"./mega_lung_training/limited_augmentation_increased_batch_event_loss_filter_{event_filter}/{lung_model.__class__.__name__}/{training_timestamp}/{number_of_buckets}_buckets_{months_per_gt_bucket}_months/{frozen_layers}/{starting_lr}_starting_lr/"
+                        os.makedirs(training_dir, exist_ok=True)
 
-                training_dir = f"./lung_training/limited_augmentation/{lung_model.__class__.__name__}/{training_timestamp}/{number_of_buckets}_buckets_{months_per_gt_bucket}_months/{frozen_layers}/{starting_lr}_starting_lr/"
-                os.makedirs(training_dir, exist_ok=True)
+                        metadata_optimizer = create_optimizer(
+                            lung_model, lr=starting_lr
+                        )
+                        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                            metadata_optimizer,
+                            mode="max",
+                            factor=factor,
+                            patience=patience,
+                            verbose=True,
+                        )
 
-                metadata_optimizer = create_optimizer(lung_model, lr=starting_lr)
-                scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                    metadata_optimizer, mode="max", factor=factor, patience=patience, verbose=True
-                )
+                        lung_score_generator = partial(
+                            lung_scoring_function,
+                            train_dataset.months_per_gt_bucket,
+                        )
 
-                lung_score_generator = partial(
-                    lung_scoring_function,
-                    train_dataset.months_per_gt_bucket,
-                )
-
-                LungModelTrainer = Trainer(
-                    lung_model,
-                    train_loader,
-                    val_loader,
-                    LUNG_LOSS,
-                    metadata_optimizer,
-                    device,
-                    evaluation_function=lung_score_generator,
-                    scheduler=scheduler,
-                    training_dir=training_dir,
-                )
-
-
-                training_details = LungModelTrainer.train(num_epochs, training_timestamp=training_timestamp)
-                print(
-                    f"Training averaged {sum(LungModelTrainer.train_time)/num_epochs:.2f}s per epoch"
-                )
-                training_details.update(
-                    {
-                        "total_epochs": num_epochs,
-                        "factor": factor,
-                        "patience": patience,
-                        "model_name": f"{lung_model.__class__.__name__}",
-                        "training_batch_size": training_batch_size,
-                        "timestamp": training_timestamp,
-                        "starting_lr": starting_lr,
-                        "random_seed": random_seed,
-                        "number_of_buckets": number_of_buckets,
-                        "months_per_gt_bucket": months_per_gt_bucket,
-                    }
-                )
-                best_model_performances.append(
-                    f"{lung_model.__class__.__name__}_{starting_lr}_learning_rate_{frozen_layers}_frozen - best_epoch: {training_details['best_epoch']} - best_acc: {training_details['best_val_acc']} - best_score: {training_details['best_val_score']} - {get_number_of_parameters(lung_model):_} params"
-                )
-                with open(f"{training_dir}/training_details.json", "w") as f:
-                    json.dump(training_details, f, indent=4)
-                with open(f"./{training_timestamp}_overall_exp_agg_results.txt", "w") as f:
-                    # print(
-                    #     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
-                    # )
-                    # f.write(
-                    #     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
-                    # )
-                    for best_model_performance in best_model_performances:
-                        print(best_model_performance)
-                        f.write(f"\n{best_model_performance}")
+                        LungModelTrainer = Trainer(
+                            lung_model,
+                            train_loader,
+                            val_loader,
+                            LUNG_LOSS,
+                            metadata_optimizer,
+                            device,
+                            evaluation_function=lung_score_generator,
+                            scheduler=scheduler,
+                            training_dir=training_dir,
+                            event_filter=event_filter,
+                        )
+                        training_details = LungModelTrainer.train(
+                            num_epochs, training_timestamp=training_timestamp
+                        )
+                        print(
+                            f"Training averaged {sum(LungModelTrainer.train_time)/num_epochs:.2f}s per epoch"
+                        )
+                        training_details.update(
+                            {
+                                "total_epochs": num_epochs,
+                                "factor": factor,
+                                "patience": patience,
+                                "model_name": f"{lung_model.__class__.__name__}",
+                                "training_batch_size": training_batch_size,
+                                "timestamp": training_timestamp,
+                                "starting_lr": starting_lr,
+                                "random_seed": random_seed,
+                                "number_of_buckets": number_of_buckets,
+                                "months_per_gt_bucket": months_per_gt_bucket,
+                            }
+                        )
+                        best_model_performances.append(
+                            f"{lung_model.__class__.__name__}_{starting_lr}_learning_rate_{frozen_layers}_frozen_{number_of_buckets}_buckets_{months_per_gt_bucket}_months - best_epoch: {training_details['best_epoch']} - best_acc: {training_details['best_val_acc']} - best_score: {training_details['best_val_score']} - {get_number_of_parameters(lung_model):_} params"
+                        )
+                        with open(f"{training_dir}/training_details.json", "w") as f:
+                            json.dump(training_details, f, indent=4)
+                        with open(
+                            f"./{training_timestamp}_overall_exp_agg_results.txt", "w"
+                        ) as f:
+                            # print(
+                            #     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
+                            # )
+                            # f.write(
+                            #     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
+                            # )
+                            for best_model_performance in best_model_performances:
+                                print(best_model_performance)
+                                f.write(f"\n{best_model_performance}")
         with open(f"./{training_timestamp}_overall_exp_agg_results.txt", "w") as f:
             # print(
             #     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"

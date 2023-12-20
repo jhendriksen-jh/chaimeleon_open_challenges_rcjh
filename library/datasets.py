@@ -52,33 +52,65 @@ class ChaimeleonData:
         os.makedirs(os.path.dirname(npz_path), exist_ok=True)
         if os.path.exists(npz_path) and not release:
             self.raw_case_images = np.load(npz_path, allow_pickle=True)
-            self.process_data_directory(data_directory, image_path, metadata_path, case_image_archive = self.raw_case_images)
+            self.process_data_directory(
+                data_directory,
+                image_path,
+                metadata_path,
+                case_image_archive=self.raw_case_images,
+            )
         elif os.path.exists(f".{npz_path}") and not release:
             npz_path = f".{npz_path}"
             self.raw_case_images = np.load(npz_path, allow_pickle=True)
-            self.process_data_directory(data_directory, image_path, metadata_path, case_image_archive = self.raw_case_images)
+            self.process_data_directory(
+                data_directory,
+                image_path,
+                metadata_path,
+                case_image_archive=self.raw_case_images,
+            )
         else:
             self.process_data_directory(data_directory, image_path, metadata_path)
             self.save_raw_cases_npz_compressed(npz_path)
+        image_means = [np.mean(image) for image in self.image_arrays]
+        self.avg_value = np.mean(image_means)
+
 
     def save_raw_cases_npz_compressed(self, npz_path):
-        raw_image_archive = {case: details['image'] for case, details in self.raw_cases.items()}
+        raw_image_archive = {
+            case: details["image"] for case, details in self.raw_cases.items()
+        }
         np.savez_compressed(npz_path, **raw_image_archive)
 
     def process_data_directory(
-        self, data_directory=None, image_path=None, metadata_path=None, case_image_archive=None
+        self,
+        data_directory=None,
+        image_path=None,
+        metadata_path=None,
+        case_image_archive=None,
     ):
         if data_directory is None:
             data_directory = self.data_directory
-        self.add_raw_case_data(data_directory, image_path, metadata_path, case_image_archive=case_image_archive)
+        self.add_raw_case_data(
+            data_directory,
+            image_path,
+            metadata_path,
+            case_image_archive=case_image_archive,
+        )
         self.get_dataset_splits()
 
-    def add_raw_case_data(self, case_directory, image_path=None, metadata_path=None, case_image_archive=None):
+    def add_raw_case_data(
+        self,
+        case_directory,
+        image_path=None,
+        metadata_path=None,
+        case_image_archive=None,
+    ):
         case_ground_truth = None
         if case_directory is not None:
             case_folders = os.listdir(case_directory)
             if os.path.isdir(os.path.join(case_directory, case_folders[0])):
-                for case_folder in tqdm(case_folders, desc="Adding raw case data to ChaimeleonDataset"):
+                for case_folder in tqdm(
+                    case_folders, desc="Adding raw case data to ChaimeleonDataset"
+                ):
                     case_path = os.path.join(case_directory, case_folder)
                     case_files = os.listdir(case_path)
                     for case_file in case_files:
@@ -180,7 +212,11 @@ class ChaimeleonData:
             nii_chunked_image = np.transpose(nii_chunked_image, (1, 2, 0))
         else:
             cropping_pixels = 32
-            nii_data = nii_data[cropping_pixels:-cropping_pixels , cropping_pixels:-cropping_pixels, cropping_pixels: -cropping_pixels]
+            nii_data = nii_data[
+                cropping_pixels:-cropping_pixels,
+                cropping_pixels:-cropping_pixels,
+                cropping_pixels:-cropping_pixels,
+            ]
             axis_chunks = []
             for a in range(3):
                 nii_chunks = []
@@ -268,7 +304,7 @@ class ProstateCancerDataset(ChaimeleonData):
         # ]
         self.categorical_metadata = []
         self.numerical_metadata = ["age", "psa"]
-        self.image_size = (256,256)
+        self.image_size = (256, 256)
         self.ground_truth_list = []
         self.get_metadata_details()
         self.define_image_transformations(split_type)
@@ -304,9 +340,13 @@ class ProstateCancerDataset(ChaimeleonData):
                     tv.transforms.ToTensor(),
                     # tv.transforms.RandomAffine(
                     #     degrees=37, translate=(0.12, 0.12), scale=(0.9, 1.1), shear=5 # use for training full slice
-                    # ), 
+                    # ),
                     tv.transforms.RandomAffine(
-                        degrees=10, translate=(0.05, 0.05), scale=(0.95, 1.05), shear=3 # use for training grid (assume doesn't tolerate large rotation)
+                        degrees=20,
+                        translate=(0.10, 0.10),
+                        scale=(0.93, 1.07),
+                        shear=3,  # use for training grid (assume doesn't tolerate large rotation)
+                        fill=self.avg_value,
                     )
                     # tv.transforms.Resize(self.image_size, antialias=True),
                 ]
@@ -316,10 +356,11 @@ class ProstateCancerDataset(ChaimeleonData):
                 [
                     tv.transforms.ToTensor(),
                     tv.transforms.Resize(
-                        round(self.image_size[0] * random.uniform(0.95, 1.05)), antialias=True
+                        round(self.image_size[0] * random.uniform(0.95, 1.05)),
+                        antialias=True,
                     ),
                     tv.transforms.RandomAffine(
-                        degrees=(-7, -3), shear=(1, 5), translate=(0.05, 0.05)
+                        degrees=(-10, -3), shear=(1, 5), translate=(0.07, 0.07), fill=self.avg_value
                     ),
                     tv.transforms.Resize(self.image_size[0], antialias=True),
                 ]
@@ -401,7 +442,7 @@ class ProstateCancerDataset(ChaimeleonData):
         else:
             normalized_ground_truth = None
         return normalized_ground_truth
-    
+
     def metatadata_transformations(self, metadata):
         # import pudb; pudb.set_trace()
         random.seed(time.time())
@@ -409,18 +450,18 @@ class ProstateCancerDataset(ChaimeleonData):
             return torch.FloatTensor(metadata)
         else:
             for k in range(len(metadata)):
-                numerical_scale = random.uniform(0.97, 1.03)
+                numerical_scale = random.uniform(0.95, 1.05)
                 metadata[k] = metadata[k] * numerical_scale
-            
+
             return torch.FloatTensor(metadata)
 
     def __getitem__(self, idx):
         current_case = list(self.prepared_cases[idx].values())[0]
         current_case_image = current_case["image"]
         current_metadata = current_case["metadata"]
-        if self.split_type == 'test':
-            random.seed(self.random_seed+idx)
-            torch.manual_seed(self.random_seed+idx)
+        if self.split_type == "test":
+            random.seed(self.random_seed + idx)
+            torch.manual_seed(self.random_seed + idx)
         transformed_image = self.image_transformations(current_case_image)
         if current_case["ground_truth"] is not None:
             current_ground_truth = np.squeeze(current_case["ground_truth"])
@@ -447,10 +488,10 @@ class LungCancerDataset(ChaimeleonData):
         metadata_path=None,
         split_type="train",
         months_per_gt_bucket=1,
-        number_of_buckets = 360,
+        number_of_buckets=360,
         random_seed=20380119,
         release=False,
-        categorical_metadata = ["gender", "smoking_status"],
+        categorical_metadata=["gender", "smoking_status"],
     ):
         super().__init__(
             data_directory,
@@ -468,8 +509,19 @@ class LungCancerDataset(ChaimeleonData):
         self.categorical_metadata = categorical_metadata
         self.categorical_value_possiblities = {
             "gender": ["MALE", "FEMALE"],
-            "smoking_status": ["Ex-smoker", "Smoker", "Non-smoker", 'Unknown'],
-            "clinical_category": ["cT1", "cT1a", "cT1b", "cT1c", "cT2", "cT2a", "cT2b", "cT3", "cT4", "cTX"],
+            "smoking_status": ["Ex-smoker", "Smoker", "Non-smoker", "Unknown"],
+            "clinical_category": [
+                "cT1",
+                "cT1a",
+                "cT1b",
+                "cT1c",
+                "cT2",
+                "cT2a",
+                "cT2b",
+                "cT3",
+                "cT4",
+                "cTX",
+            ],
             "regional_nodes_category": ["cN0", "cN1", "cN2", "cN3", "cNX"],
             "metastasis_category": ["cM0", "cM1", "cM1a", "cM1b", "cM1c"],
         }
@@ -528,7 +580,7 @@ class LungCancerDataset(ChaimeleonData):
                     #     degrees=45, translate=(0.2, 0.2), scale=(0.9, 1.1), shear=5
                     # ),
                     tv.transforms.RandomAffine(
-                        degrees=10, translate=(0.05, 0.05), scale=(0.95, 1.05), shear=3
+                        degrees=20, translate=(0.15, 0.15), scale=(0.90, 1.10), shear=3, fill=self.avg_value,
                     ),
                     tv.transforms.Resize(self.image_size, antialias=True),
                 ]
@@ -538,10 +590,11 @@ class LungCancerDataset(ChaimeleonData):
                 [
                     tv.transforms.ToTensor(),
                     tv.transforms.Resize(
-                        round(self.image_size[0] * random.uniform(0.9, 1.1)), antialias=True
+                        round(self.image_size[0] * random.uniform(0.9, 1.1)),
+                        antialias=True,
                     ),
                     tv.transforms.RandomAffine(
-                        degrees=(-60, -15), shear=(5, 10), translate=(0.2, 0.2)
+                        degrees=(-15, -3), shear=(2, 6), translate=(0.1, 0.1), fill=self.avg_value,
                     ),
                     tv.transforms.Resize(self.image_size, antialias=True),
                 ]
@@ -555,37 +608,49 @@ class LungCancerDataset(ChaimeleonData):
             )
         self.image_transformations = image_transformations
         return image_transformations
-    
+
     def metatadata_transformations(self, metadata):
         # import pudb; pudb.set_trace()
         random.seed(time.time())
         if self.split_type == "val" or self.split_type == "all":
             return torch.FloatTensor(metadata)
         else:
-            numerical_scale = random.uniform(0.97, 1.07)
+            numerical_scale = random.uniform(0.93, 1.07)
             metadata[-1] = metadata[-1] * numerical_scale
 
-            categorical_flip_odds = random.uniform(0.001, 0.01)
-            if random.choices([True, False], weights=[categorical_flip_odds, 1 - categorical_flip_odds], k=1)[0]:
+            categorical_flip_odds = random.uniform(0.001, 0.05)
+            if random.choices(
+                [True, False],
+                weights=[categorical_flip_odds, 1 - categorical_flip_odds],
+                k=1,
+            )[0]:
                 metadata[:2] = metadata[:2][::-1]
-            if random.choices([True, False], weights=[categorical_flip_odds, 1 - categorical_flip_odds], k=1)[0]:
+            if random.choices(
+                [True, False],
+                weights=[categorical_flip_odds, 1 - categorical_flip_odds],
+                k=1,
+            )[0]:
                 shuffled_metadata = metadata[2:-1]
                 random.shuffle(shuffled_metadata)
                 metadata[2:-1] = shuffled_metadata
-            
+
             return torch.FloatTensor(metadata)
 
     def get_metadata_details(self):
         metadata_details = defaultdict(lambda: {"values": []})
         for case, case_data in self.raw_cases.items():
             for key, value in case_data["metadata"].items():
-                if key not in {"clinical_category", "regional_nodes_category", "metastasis_category"}:
+                if key in self.categorical_metadata and str(value) not in ["NaN", "nan"]:
                     metadata_details[key]["values"].append(value)
                     if self.categorical_value_possiblities.get(key) is not None:
-                        metadata_details[key]["values"].extend(self.categorical_value_possiblities[key])
+                        metadata_details[key]["values"].extend(
+                            self.categorical_value_possiblities[key]
+                        )
+                elif key in self.numerical_metadata:
+                    metadata_details[key]["values"].append(value)
 
         for details in metadata_details.values():
-            details['values'] = set(details["values"])
+            details["values"] = set(details["values"])
             details["max"] = max(details["values"])
             details["min"] = min(details["values"])
             details["length"] = len(details["values"])
@@ -603,11 +668,14 @@ class LungCancerDataset(ChaimeleonData):
         for key in self.categorical_metadata:
             current_value = raw_metadata[key]
             num_possible_values = len(self.metadata_details[key]["sorted_values"])
-            encoded_location = self.metadata_details[key]["sorted_values"].index(
-                current_value
-            )
             encoded_metadata = np.zeros((num_possible_values, 1))
-            encoded_metadata[encoded_location] = 1
+            if current_value not in self.metadata_details[key]["sorted_values"]:
+                pass
+            else:
+                encoded_location = self.metadata_details[key]["sorted_values"].index(
+                    current_value
+                )
+                encoded_metadata[encoded_location] = 1
             all_encoded_metadata = np.concatenate(
                 (all_encoded_metadata, encoded_metadata), axis=0
             )
@@ -627,7 +695,9 @@ class LungCancerDataset(ChaimeleonData):
     def normalize_ground_truth(self, raw_ground_truth):
         if raw_ground_truth is not None:
             normalized_ground_truth = np.zeros((self.number_of_buckets, 1))
-            normalized_gt_bucket = round(raw_ground_truth["survival_time_months"] / self.months_per_gt_bucket)
+            normalized_gt_bucket = round(
+                raw_ground_truth["survival_time_months"] / self.months_per_gt_bucket
+            )
             normalized_ground_truth[normalized_gt_bucket][0] = raw_ground_truth["event"]
         else:
             normalized_ground_truth = None
@@ -649,9 +719,9 @@ class LungCancerDataset(ChaimeleonData):
         current_case_image = current_case["image"].astype(np.float32)
         current_metadata = current_case["metadata"]
         current_survival = current_case["survival"]
-        if self.split_type == 'test':
-            random.seed(self.random_seed+idx)
-            torch.manual_seed(self.random_seed+idx)
+        if self.split_type == "test":
+            random.seed(self.random_seed + idx)
+            torch.manual_seed(self.random_seed + idx)
         if current_case["ground_truth"] is not None:
             current_ground_truth = np.squeeze(current_case["ground_truth"])
             return (
