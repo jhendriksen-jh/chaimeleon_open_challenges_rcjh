@@ -37,6 +37,7 @@ class ChaimeleonData:
         random_seed=2038,
         lung=False,
         release=False,
+        avg_fill = False,
     ):
         self.random_seed = random_seed
         self.data_directory = data_directory
@@ -45,7 +46,7 @@ class ChaimeleonData:
         self.raw_cases = {}
         self.prepared_cases = []
         self.lung = lung
-        if self.lung:
+        if self.lung and data_directory is not None:
             npz_path = f"./datasets/train_lung_npz/processed_case_images_{data_directory.replace('/', '_')}.npz"
         else:
             npz_path = f"./datasets/train_prostate_npz/processed_case_images_{input_slice_count}.npz"
@@ -70,8 +71,17 @@ class ChaimeleonData:
         else:
             self.process_data_directory(data_directory, image_path, metadata_path)
             self.save_raw_cases_npz_compressed(npz_path)
-        image_means = [np.mean(image) for image in self.image_arrays]
-        self.avg_value = np.mean(image_means)
+        try:
+            image_means = [np.mean(image) for image in tqdm(self.raw_case_images.values(), desc='average image value')]
+            if not self.lung and avg_fill:
+                self.avg_value = np.mean(image_means)/255
+            elif avg_fill:
+                self.avg_value = np.mean(image_means)
+            else:
+                self.avg_value = 0
+        except AttributeError as e:
+            print(e)
+            self.avg_value = 0
 
 
     def save_raw_cases_npz_compressed(self, npz_path):
@@ -267,6 +277,7 @@ class ChaimeleonData:
             "train": self.train_keys,
             "val": self.val_keys,
             "test": self.val_keys,
+            "test_extreme": self.val_keys,
             "all": dataset_keys,
         }
 
@@ -284,6 +295,7 @@ class ProstateCancerDataset(ChaimeleonData):
         random_seed=20380119,
         input_slice_count: int = 1,
         release=False,
+        avg_fill=False,
     ):
         super().__init__(
             data_directory,
@@ -292,6 +304,7 @@ class ProstateCancerDataset(ChaimeleonData):
             input_slice_count=input_slice_count,
             random_seed=random_seed,
             release=release,
+            avg_fill=avg_fill,
         )
         self.split_type = split_type
         self.split_keys = self.keys_by_split[split_type]
@@ -343,7 +356,7 @@ class ProstateCancerDataset(ChaimeleonData):
                     # ),
                     tv.transforms.RandomAffine(
                         degrees=20,
-                        translate=(0.10, 0.10),
+                        translate=(0.15, 0.15),
                         scale=(0.93, 1.07),
                         shear=3,  # use for training grid (assume doesn't tolerate large rotation)
                         fill=self.avg_value,
@@ -361,6 +374,20 @@ class ProstateCancerDataset(ChaimeleonData):
                     ),
                     tv.transforms.RandomAffine(
                         degrees=(-10, -3), shear=(1, 5), translate=(0.07, 0.07), fill=self.avg_value
+                    ),
+                    tv.transforms.Resize(self.image_size[0], antialias=True),
+                ]
+            )
+        elif split_type == "test_extreme":
+            image_transformations = tv.transforms.Compose(
+                [
+                    tv.transforms.ToTensor(),
+                    tv.transforms.Resize(
+                        round(self.image_size[0] * random.uniform(0.85, 1.15)),
+                        antialias=True,
+                    ),
+                    tv.transforms.RandomAffine(
+                        degrees=(-20, -6), shear=(3, 10), translate=(0.15, 0.15), fill=self.avg_value
                     ),
                     tv.transforms.Resize(self.image_size[0], antialias=True),
                 ]
@@ -492,6 +519,7 @@ class LungCancerDataset(ChaimeleonData):
         random_seed=20380119,
         release=False,
         categorical_metadata=["gender", "smoking_status"],
+        avg_fill=False,
     ):
         super().__init__(
             data_directory,
@@ -500,6 +528,7 @@ class LungCancerDataset(ChaimeleonData):
             metadata_path=metadata_path,
             random_seed=random_seed,
             release=release,
+            avg_fill=avg_fill,
         )
 
         self.split_type = split_type
@@ -599,6 +628,20 @@ class LungCancerDataset(ChaimeleonData):
                     tv.transforms.Resize(self.image_size, antialias=True),
                 ]
             )
+        elif split_type == "test_extreme":
+            image_transformations = tv.transforms.Compose(
+                [
+                    tv.transforms.ToTensor(),
+                    tv.transforms.Resize(
+                        round(self.image_size[0] * random.uniform(0.8, 1.2)),
+                        antialias=True,
+                    ),
+                    tv.transforms.RandomAffine(
+                        degrees=(-25, -9), shear=(5, 10), translate=(0.15, 0.15), fill=self.avg_value,
+                    ),
+                    tv.transforms.Resize(self.image_size, antialias=True),
+                ]
+            )
         else:
             image_transformations = tv.transforms.Compose(
                 [
@@ -619,20 +662,60 @@ class LungCancerDataset(ChaimeleonData):
             metadata[-1] = metadata[-1] * numerical_scale
 
             categorical_flip_odds = random.uniform(0.001, 0.05)
-            if random.choices(
-                [True, False],
-                weights=[categorical_flip_odds, 1 - categorical_flip_odds],
-                k=1,
-            )[0]:
-                metadata[:2] = metadata[:2][::-1]
-            if random.choices(
-                [True, False],
-                weights=[categorical_flip_odds, 1 - categorical_flip_odds],
-                k=1,
-            )[0]:
-                shuffled_metadata = metadata[2:-1]
-                random.shuffle(shuffled_metadata)
-                metadata[2:-1] = shuffled_metadata
+            if len(metadata) == 7:
+                if random.choices(
+                    [True, False],
+                    weights=[categorical_flip_odds, 1 - categorical_flip_odds],
+                    k=1,
+                )[0]:
+                    metadata[:2] = metadata[:2][::-1]
+                if random.choices(
+                    [True, False],
+                    weights=[categorical_flip_odds, 1 - categorical_flip_odds],
+                    k=1,
+                )[0]:
+                    shuffled_metadata = metadata[2:-1]
+                    random.shuffle(shuffled_metadata)
+                    metadata[2:-1] = shuffled_metadata
+            elif len(metadata) == 27:
+                if random.choices(
+                    [True, False],
+                    weights=[categorical_flip_odds, 1 - categorical_flip_odds],
+                    k=1,
+                )[0]:
+                    metadata[:2] = metadata[:2][::-1]
+                if random.choices(
+                    [True, False],
+                    weights=[categorical_flip_odds, 1 - categorical_flip_odds],
+                    k=1,
+                )[0]:
+                    shuffled_metadata = metadata[2:6]
+                    random.shuffle(shuffled_metadata)
+                    metadata[2:6] = shuffled_metadata
+                if random.choices(
+                    [True, False],
+                    weights=[categorical_flip_odds, 1 - categorical_flip_odds],
+                    k=1,
+                )[0]:
+                    shuffled_metadata = metadata[6:16]
+                    random.shuffle(shuffled_metadata)
+                    metadata[6:16] = shuffled_metadata
+                if random.choices(
+                    [True, False],
+                    weights=[categorical_flip_odds, 1 - categorical_flip_odds],
+                    k=1,
+                )[0]:
+                    shuffled_metadata = metadata[16:21]
+                    random.shuffle(shuffled_metadata)
+                    metadata[16:21] = shuffled_metadata
+                if random.choices(
+                    [True, False],
+                    weights=[categorical_flip_odds, 1 - categorical_flip_odds],
+                    k=1,
+                )[0]:
+                    shuffled_metadata = metadata[21:-1]
+                    random.shuffle(shuffled_metadata)
+                    metadata[21:-1] = shuffled_metadata
 
             return torch.FloatTensor(metadata)
 

@@ -49,8 +49,12 @@ class Lungcancerosprediction(ClassificationAlgorithm):
         if clinical_info_path is None:
             clinical_info_path = self.clinical_info_path
 
+        # v1 & v3
         number_of_buckets = 400
         months_per_gt_bucket = 0.5
+        # v2
+        # number_of_buckets = 50
+        # months_per_gt_bucket = 3
 
         dataset = LungCancerDataset(
             image_path=image_path,
@@ -72,7 +76,7 @@ class Lungcancerosprediction(ClassificationAlgorithm):
         print(clinical_info)
 
         # TODO: Add your inference code here
-        model_path = "./library/release_models/lung/v1/20231212_400buck_05m_003lr_unfrozen_best_val_score_LungCombinedResnet18PretrainedModel.pt"
+        model_path = "./library/release_models/lung/v3/20231212_400buck_05m_003lr_l2l3frozen_best_val_score_LungCombinedResnet18PretrainedModel.pt"
         model = LungCombinedResnet18PretrainedModel(number_of_buckets=number_of_buckets)
         print(f"model_built - {model_path}")
         if not torch.cuda.is_available():

@@ -140,6 +140,7 @@ class Trainer:
             else:
                 data = images.to(self.device), metadata.squeeze().to(self.device)
             if isinstance(targets, list):
+                pfs = targets[1]
                 targets = targets[0].to(self.device)
             else:
                 targets = targets.to(self.device)
@@ -149,7 +150,7 @@ class Trainer:
                 loss = self.loss_fn(output, targets)
             else:
                 batch_inds = []
-                for batch_ind, (cur_output, cur_targets, cur_pfs) in enumerate(zip(output, targets, pfs)):
+                for batch_ind, cur_pfs in enumerate(pfs):
                     if cur_pfs[0]:
                         batch_inds.append(batch_ind)
                 loss = self.loss_fn(output[batch_inds], targets[batch_inds])

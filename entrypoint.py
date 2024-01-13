@@ -121,46 +121,12 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
     if train and cancer == "prostate":
         best_model_performances = []
         start_overall_time = time.time()
-        # image_model = ProstateImageModel()
-        # image_model = torchvision.models.resnet18(pretrained=True)
-        # num_ftrs = image_model.fc.in_features
-        # image_model.fc = torch.nn.Sequential(
-        #         torch.nn.Linear(num_ftrs, 2),
-        #         torch.nn.Dropout(p=0.025),
-        #         torch.nn.Linear(1024, 2),
-        #     )
 
-        # optimizer = create_optimizer(image_model)
         for random_seed in [24042]:
             num_epochs = 600
             device = get_device()
             training_batch_size = 48
 
-            # print(
-            #     f"\n######## Training {image_model.__class__.__name__} - {get_number_of_parameters(image_model)} params ########\n"
-            # )
-
-            # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            #     optimizer, mode="max", factor=0.25, patience=75, verbose=True
-            # )
-
-            # ProstateImageTrainer = FineTuner(
-            #     image_model,
-            #     train_loader,
-            #     val_loader,
-            #     PROSTATE_LOSS,
-            #     optimizer,
-            #     device,
-            #     evaluation_function=prostate_scoring_function,
-            #     scheduler=scheduler,
-            # )
-            # ProstateImageTrainer.train(num_epochs)
-            # print(
-            #     f"Training averaged {sum(ProstateImageTrainer.train_time)/num_epochs:.2f}s per epoch"
-            # )
-            # del image_model
-            # for metadata_model_class in [ProstateMetadataModel, ProstateMetadataModelV2Small, ProstateMetadataModelV3]:
-            #     metadata_model = metadata_model_class()
 
             train_dataset = ProstateCancerDataset(
                 data_directory, random_seed=random_seed
@@ -175,58 +141,6 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             val_details = f"Validation Prostate Cancer Dataset - {val_gt_details[0]} low risk cases, {val_gt_details[1]} high risk cases, {val_gt_details[2]} high risk ratio\n\n"
             print(val_details)
 
-            #     train_loader = create_dataloader(train_dataset, batch_size=training_batch_size)
-            #     val_loader = create_dataloader(val_dataset, batch_size=16)
-            #     print(
-            #         f"\n######## Training {metadata_model.__class__.__name__} - {get_number_of_parameters(metadata_model):_} ########\n"
-            #     )
-            #     factor = 0.75
-            #     patience = 60
-            #     training_timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-            #     training_dir = f"./quick_training_details/metadata_model_raw_values/{metadata_model.__class__.__name__}/{training_timestamp}/"
-            #     os.makedirs(training_dir, exist_ok=True)
-            #     metadata_optimizer = create_optimizer(metadata_model)
-            #     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            #         metadata_optimizer,
-            #         mode="max",
-            #         factor=factor,
-            #         patience=patience,
-            #         verbose=True,
-            #     )
-            #     ProstateMetadataTrainer = Trainer(
-            #         metadata_model,
-            #         train_loader,
-            #         val_loader,
-            #         PROSTATE_LOSS,
-            #         metadata_optimizer,
-            #         device,
-            #         evaluation_function=prostate_scoring_function,
-            #         scheduler=scheduler,
-            #         training_dir=training_dir,
-            #     )
-            #     training_details = ProstateMetadataTrainer.train(num_epochs, training_timestamp)
-            #     training_details.update(
-            #         {
-            #             "total_epochs": num_epochs,
-            #             "factor": factor,
-            #             "patience": patience,
-            #             "model_name": metadata_model.__class__.__name__,
-            #             "training_batch_size": training_batch_size,
-            #             "timestamp": training_timestamp,
-            #             "random_seed": random_seed,
-            #         }
-            #     )
-            #     best_model_performances.append(f"{metadata_model.__class__.__name__} - best_epoch: {training_details['best_epoch']} - best_acc: {training_details['best_val_acc']} - best_score: {training_details['best_val_score']} - {get_number_of_parameters(metadata_model):_} params")
-            #     with open(f"{training_dir}/training_details.json", "w") as f:
-            #         json.dump(training_details, f, indent=4)
-            #     print(
-            #         f"Training averaged {sum(ProstateMetadataTrainer.train_time)/num_epochs:.2f}s per epoch"
-            #     )
-            #     del metadata_model
-
-            # ProstateMetadataTrainer.plot_acc()
-            # ProstateMetadataTrainer.plot_loss()
-            # import pudb; pudb.set_trace()
             training_timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
             training_batch_size = 48
             factor = 0.75
@@ -281,7 +195,7 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
                             print(
                                 f"\n######## Training {combo_model.__class__.__name__} {frozen_layers} frozen {starting_lr} lr {factor} factor - {get_number_of_parameters(combo_model):_} ########\n"
                             )
-                            training_dir = f"./mega_tuning_exp_training_details/pretrained_model_raw_metadata/{combo_model.__class__.__name__}/{training_timestamp}/limited_augmentation_reduced_loss_bias_16_4/{frozen_layers}_frozen/{starting_lr}_starting_learning_rate_{factor}_factor_{patience}_patience/"
+                            training_dir = f"./mega_tuning_exp_training_details/pretrained_model_raw_metadata/{combo_model.__class__.__name__}/{training_timestamp}/avg_fill_augmentation_reduced_loss_bias_16_4/{frozen_layers}_frozen/{starting_lr}_starting_learning_rate_{factor}_factor_{patience}_patience/"
                             os.makedirs(training_dir, exist_ok=True)
                             combo_optimizer = create_optimizer(
                                 combo_model, lr=starting_lr
@@ -366,7 +280,6 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
                 f.write(f"\n{best_model_performance}")
 
     elif train and cancer == "lung":
-        # import pudb; pudb.set_trace()
         best_model_performances = []
         random_seed = 42024
         training_batch_size = 48
@@ -380,142 +293,133 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         num_epochs = 500
         training_timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-        for frozen_layers in [
-            [],
-            ["layer2", "layer3"],
-        ]:
-            for number_of_buckets, months_per_gt_bucket in [
-                (400, 0.5),
-                (200, 1),
-                (100, 1.5),
-                (200, 0.75),
+        for event_filter in [
+            # True, 
+            False,
             ]:
-                for lung_model, categorical_metadata in [
-                    (
-                        LungCombinedResnet18PretrainedModel(
-                            frozen_layers=frozen_layers,
-                            number_of_buckets=number_of_buckets,
-                        ),
-                        ["gender", "smoking_status"],
-                    ),
-                    (
-                        LungCombinedResnet18PretrainedModelV2AllMeta(
-                            frozen_layers=frozen_layers,
-                            number_of_buckets=number_of_buckets,
-                        ),
-                        [
-                            "gender",
-                            "smoking_status",
-                            "clinical_category",
-                            "regional_nodes_category",
-                            "metastasis_category",
-                        ],
-                    ),
+            for frozen_layers in [
+                # [],
+                ["layer2", "layer3"],
+            ]:
+                for number_of_buckets, months_per_gt_bucket in [
+                    (400, 0.5),
+                    (200, 1),
+                    (100, 1.5),
+                    (50, 3),
                 ]:
-                    train_dataset = LungCancerDataset(
-                        data_directory,
-                        random_seed=random_seed,
-                        number_of_buckets=number_of_buckets,
-                        months_per_gt_bucket=months_per_gt_bucket,
-                        categorical_metadata=categorical_metadata,
-                    )
-                    val_dataset = LungCancerDataset(
-                        data_directory,
-                        split_type="val",
-                        random_seed=random_seed,
-                        number_of_buckets=number_of_buckets,
-                        months_per_gt_bucket=months_per_gt_bucket,
-                        categorical_metadata=categorical_metadata,
-                    )
-                    train_loader = create_dataloader(
-                        train_dataset, batch_size=training_batch_size
-                    )
-                    val_loader = create_dataloader(
-                        val_dataset, batch_size=training_batch_size
-                    )
-
-                    print(
-                        f"\n######## Training Lung Model - {get_number_of_parameters(lung_model)} - {frozen_layers} frozen - {number_of_buckets} buckets ########\n"
-                    )
-                    for starting_lr in [0.05, 0.01, 0.003, 0.007]:
-                        event_filter = True
-                        print(f"Starting LR: {starting_lr}")
-
-                        training_dir = f"./mega_lung_training/limited_augmentation_increased_batch_event_loss_filter_{event_filter}/{lung_model.__class__.__name__}/{training_timestamp}/{number_of_buckets}_buckets_{months_per_gt_bucket}_months/{frozen_layers}/{starting_lr}_starting_lr/"
-                        os.makedirs(training_dir, exist_ok=True)
-
-                        metadata_optimizer = create_optimizer(
-                            lung_model, lr=starting_lr
+                    for lung_model, categorical_metadata in [
+                        (
+                            LungCombinedResnet18PretrainedModel(
+                                frozen_layers=frozen_layers,
+                                number_of_buckets=number_of_buckets,
+                            ),
+                            ["gender", "smoking_status"],
+                        ),
+                        (
+                            LungCombinedResnet18PretrainedModelV2AllMeta(
+                                frozen_layers=frozen_layers,
+                                number_of_buckets=number_of_buckets,
+                            ),
+                            [
+                                "gender",
+                                "smoking_status",
+                                "clinical_category",
+                                "regional_nodes_category",
+                                "metastasis_category",
+                            ],
+                        ),
+                    ]:
+                        train_dataset = LungCancerDataset(
+                            data_directory,
+                            random_seed=random_seed,
+                            number_of_buckets=number_of_buckets,
+                            months_per_gt_bucket=months_per_gt_bucket,
+                            categorical_metadata=categorical_metadata,
                         )
-                        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                            metadata_optimizer,
-                            mode="max",
-                            factor=factor,
-                            patience=patience,
-                            verbose=True,
+                        val_dataset = LungCancerDataset(
+                            data_directory,
+                            split_type="val",
+                            random_seed=random_seed,
+                            number_of_buckets=number_of_buckets,
+                            months_per_gt_bucket=months_per_gt_bucket,
+                            categorical_metadata=categorical_metadata,
                         )
-
-                        lung_score_generator = partial(
-                            lung_scoring_function,
-                            train_dataset.months_per_gt_bucket,
+                        train_loader = create_dataloader(
+                            train_dataset, batch_size=training_batch_size
+                        )
+                        val_loader = create_dataloader(
+                            val_dataset, batch_size=training_batch_size
                         )
 
-                        LungModelTrainer = Trainer(
-                            lung_model,
-                            train_loader,
-                            val_loader,
-                            LUNG_LOSS,
-                            metadata_optimizer,
-                            device,
-                            evaluation_function=lung_score_generator,
-                            scheduler=scheduler,
-                            training_dir=training_dir,
-                            event_filter=event_filter,
-                        )
-                        training_details = LungModelTrainer.train(
-                            num_epochs, training_timestamp=training_timestamp
-                        )
                         print(
-                            f"Training averaged {sum(LungModelTrainer.train_time)/num_epochs:.2f}s per epoch"
+                            f"\n######## Training {lung_model.__class__.__name__} - {get_number_of_parameters(lung_model)} - {frozen_layers} frozen - {number_of_buckets} - buckets {months_per_gt_bucket} months - {event_filter} event filter ########\n"
                         )
-                        training_details.update(
-                            {
-                                "total_epochs": num_epochs,
-                                "factor": factor,
-                                "patience": patience,
-                                "model_name": f"{lung_model.__class__.__name__}",
-                                "training_batch_size": training_batch_size,
-                                "timestamp": training_timestamp,
-                                "starting_lr": starting_lr,
-                                "random_seed": random_seed,
-                                "number_of_buckets": number_of_buckets,
-                                "months_per_gt_bucket": months_per_gt_bucket,
-                            }
-                        )
-                        best_model_performances.append(
-                            f"{lung_model.__class__.__name__}_{starting_lr}_learning_rate_{frozen_layers}_frozen_{number_of_buckets}_buckets_{months_per_gt_bucket}_months - best_epoch: {training_details['best_epoch']} - best_acc: {training_details['best_val_acc']} - best_score: {training_details['best_val_score']} - {get_number_of_parameters(lung_model):_} params"
-                        )
-                        with open(f"{training_dir}/training_details.json", "w") as f:
-                            json.dump(training_details, f, indent=4)
-                        with open(
-                            f"./{training_timestamp}_overall_exp_agg_results.txt", "w"
-                        ) as f:
-                            # print(
-                            #     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
-                            # )
-                            # f.write(
-                            #     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
-                            # )
-                            for best_model_performance in best_model_performances:
-                                print(best_model_performance)
-                                f.write(f"\n{best_model_performance}")
+                        for starting_lr in [0.05, 0.01, 0.003, 0.1]:
+                            print(f"Starting LR: {starting_lr}")
+
+                            training_dir = f"./mega_lung_training/avg_fil_augmentation_event_loss_filter_{event_filter}/{lung_model.__class__.__name__}/{training_timestamp}/{number_of_buckets}_buckets_{months_per_gt_bucket}_months/{frozen_layers}/{starting_lr}_starting_lr/"
+                            os.makedirs(training_dir, exist_ok=True)
+
+                            metadata_optimizer = create_optimizer(
+                                lung_model, lr=starting_lr
+                            )
+                            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                                metadata_optimizer,
+                                mode="max",
+                                factor=factor,
+                                patience=patience,
+                                verbose=True,
+                            )
+
+                            lung_score_generator = partial(
+                                lung_scoring_function,
+                                train_dataset.months_per_gt_bucket,
+                            )
+
+                            LungModelTrainer = Trainer(
+                                lung_model,
+                                train_loader,
+                                val_loader,
+                                LUNG_LOSS,
+                                metadata_optimizer,
+                                device,
+                                evaluation_function=lung_score_generator,
+                                scheduler=scheduler,
+                                training_dir=training_dir,
+                                event_filter=event_filter,
+                            )
+                            training_details = LungModelTrainer.train(
+                                num_epochs, training_timestamp=training_timestamp
+                            )
+                            print(
+                                f"Training averaged {sum(LungModelTrainer.train_time)/num_epochs:.2f}s per epoch"
+                            )
+                            training_details.update(
+                                {
+                                    "total_epochs": num_epochs,
+                                    "factor": factor,
+                                    "patience": patience,
+                                    "model_name": f"{lung_model.__class__.__name__}",
+                                    "training_batch_size": training_batch_size,
+                                    "timestamp": training_timestamp,
+                                    "starting_lr": starting_lr,
+                                    "random_seed": random_seed,
+                                    "number_of_buckets": number_of_buckets,
+                                    "months_per_gt_bucket": months_per_gt_bucket,
+                                }
+                            )
+                            best_model_performances.append(
+                                f"{lung_model.__class__.__name__}_{starting_lr}_learning_rate_{frozen_layers}_frozen_{number_of_buckets}_buckets_{months_per_gt_bucket}_months_{event_filter}_event_filter - best_epoch: {training_details['best_epoch']} - best_acc: {training_details['best_val_acc']} - best_score: {training_details['best_val_score']} - {get_number_of_parameters(lung_model):_} params"
+                            )
+                            with open(f"{training_dir}/training_details.json", "w") as f:
+                                json.dump(training_details, f, indent=4)
+                            with open(
+                                f"./{training_timestamp}_overall_exp_agg_results.txt", "w"
+                            ) as f:
+                                for best_model_performance in best_model_performances:
+                                    print(best_model_performance)
+                                    f.write(f"\n{best_model_performance}")
         with open(f"./{training_timestamp}_overall_exp_agg_results.txt", "w") as f:
-            # print(
-            #     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
-            # )
-            # f.write(
-            #     f"Training for all models complete - {time.time() - start_overall_time:.2f}s - {num_epochs} epochs\n"
-            # )
             for best_model_performance in best_model_performances:
                 print(best_model_performance)
                 f.write(f"\n{best_model_performance}")

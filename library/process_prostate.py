@@ -10,7 +10,7 @@ from evalutils.validators import (
     UniqueImagesValidator,
 )
 
-from library.models import ProstateCombinedResnet18PretrainedModel
+from library.models import ProstateCombinedResnet18PretrainedModel, ProstateCombinedResnet18PretrainedModel_V2_1_Grid
 from library.datasets import ProstateCancerDataset, create_dataloader
 
 
@@ -63,14 +63,6 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
         for data in eval_loader:
             (eval_images, self.clinical_info) = data
 
-        # if image_path:
-        #     self.image_input_path = Path(image_path)
-        # if clinical_info_path:
-        #     with open(clinical_info_path, 'r') as f:
-        #         self.clinical_info = json.load(f)
-
-        # read image
-        # image = sitk.ReadImage(str(self.image_input_path))
         clinical_info = self.clinical_info
         print("Clinical info: ")
         print(clinical_info)
@@ -78,29 +70,12 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
         # TODO: Add your inference code here
         risk_scores = ["Low", "High"]
 
-        # np_image = sitk.GetArrayFromImage(image)
-        # nii_chunks = []
-        # for k in range(self.input_slice_count):
-        #     u = int(np.ceil((k + 1) * (np_image.shape[0] / self.input_slice_count)))
-        #     l = int(np.floor((k) * (np_image.shape[0] / self.input_slice_count)))
-        #     nii_chunk = np.mean(np_image[l:u, :, :], axis=0)
-        #     nii_chunk = (
-        #         (nii_chunk - nii_chunk.min()) / (nii_chunk.max() - nii_chunk.min())
-        #     ) * 255
-        #     nii_chunks.append(nii_chunk)
-        # nii_chunked_image = np.array(nii_chunks).astype(np.uint8)
-        # # nii_chunked_image = np.transpose(nii_chunked_image, (1, 2, 0))
-        # image_tensor = torch.from_numpy(nii_chunked_image)
 
-        # if clinical_info.get("patient_age"):
-        #     age = int(clinical_info["patient_age"])
-        # else:
-        #     age = int(clinical_info["age"])
-        # psa = float(clinical_info["psa"])
-        # clinical_tensor = torch.FloatTensor([[[age, psa]]])
-
-        model_path = "./library/release_models/v2/20231217_best_val_score_L2L3_frozen_007lr_meta_aug_ProstateCombinedResnet18PretrainedModel.pt"
-        model = ProstateCombinedResnet18PretrainedModel()
+        model_path = "./library/release_models/v3/20240106_avgfill_reduced_bias_unfrozen_003lr_30p_best_val_score_ProstateCombinedResnet18PretrainedModel_V2_1_Grid.pt"
+        # v1 & v2
+        # model = ProstateCombinedResnet18PretrainedModel()
+        # v3
+        model = ProstateCombinedResnet18PretrainedModel_V2_1_Grid()
         print(f"model_built - {model_path}")
         if not torch.cuda.is_available():
             model_state_dict = torch.load(
