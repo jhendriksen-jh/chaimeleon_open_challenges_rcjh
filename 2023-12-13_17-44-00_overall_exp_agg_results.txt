@@ -1,9 +1,0 @@
-
-LungCombinedResnet18PretrainedModel_0.01_learning_rate_[]_frozen - best_epoch: 7 - best_acc: 0.08333333333333333 - best_score: 0.6329113924050633 - 11_939_169 params
-LungCombinedResnet18PretrainedModel_0.003_learning_rate_[]_frozen - best_epoch: 132 - best_acc: 0.125 - best_score: 0.7305605786618445 - 11_939_169 params
-LungCombinedResnet18PretrainedModel_0.01_learning_rate_['layer1', 'layer2', 'layer3']_frozen - best_epoch: 48 - best_acc: 0.08333333333333333 - best_score: 0.7377938517179023 - 9_165_921 params
-LungCombinedResnet18PretrainedModel_0.003_learning_rate_['layer1', 'layer2', 'layer3']_frozen - best_epoch: 140 - best_acc: 0.041666666666666664 - best_score: 0.7396021699819169 - 9_165_921 params
-LungCombinedResnet18PretrainedModel_0.01_learning_rate_['layer2', 'layer3']_frozen - best_epoch: 159 - best_acc: 0.08333333333333333 - best_score: 0.713381555153707 - 9_313_889 params
-LungCombinedResnet18PretrainedModel_0.003_learning_rate_['layer2', 'layer3']_frozen - best_epoch: 38 - best_acc: 0.08333333333333333 - best_score: 0.7242314647377939 - 9_313_889 params
-LungCombinedResnet18PretrainedModel_0.01_learning_rate_['layer1', 'layer2', 'layer3', 'layer4']_frozen - best_epoch: 103 - best_acc: 0.10416666666666667 - best_score: 0.6835443037974683 - 772_193 params
-LungCombinedResnet18PretrainedModel_0.003_learning_rate_['layer1', 'layer2', 'layer3', 'layer4']_frozen - best_epoch: 46 - best_acc: 0.10416666666666667 - best_score: 0.6537070524412296 - 772_193 params
