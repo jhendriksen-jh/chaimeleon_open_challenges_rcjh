@@ -1,0 +1,4 @@
+
+LungCombinedModel_0.003_learning_rate - best_epoch: 59 - best_acc: 0.08333333333333333 - best_score: 0.7215189873417721 - 10_880_889 params
+LungCombinedModel_0.001_learning_rate - best_epoch: 3 - best_acc: 0.041666666666666664 - best_score: 0.6265822784810127 - 10_880_889 params
+LungCombinedModel_0.0001_learning_rate - best_epoch: 97 - best_acc: 0 - best_score: 0.6916817359855335 - 10_880_889 params

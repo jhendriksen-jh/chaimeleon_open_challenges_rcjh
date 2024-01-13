@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 # PROSTATE_LOSS = torch.nn.BCEWithLogitsLoss(reduction="mean")
 PROSTATE_LOSS = torch.nn.BCEWithLogitsLoss(
-    reduction="mean", pos_weight=torch.tensor([16], device="cuda")
+    reduction="mean", pos_weight=torch.tensor([4], device="cuda")
 )
 # LUNG_LOSS = torch.nn.MSELoss(reduction="mean")
 LUNG_LOSS = torch.nn.MultiLabelSoftMarginLoss(reduction="sum")
@@ -46,6 +46,7 @@ class Trainer:
         evaluation_function=None,
         scheduler=None,
         training_dir="./",
+        event_filter=False,
     ):
         self.model = model.to(device)
         self.train_loader = train_loader
@@ -56,6 +57,7 @@ class Trainer:
         self.scheduler = scheduler
         self.eval_function = evaluation_function
         self.training_dir = training_dir
+        self.event_filter = event_filter
         self.train_loss = []
         self.val_loss = []
         self.train_acc = []
@@ -63,6 +65,7 @@ class Trainer:
         self.train_time = []
         self.val_time = []
         self.val_score = [0]
+        self.val_score_dicts = []
         self.best_score = 0
         self.best_val_acc = 0
 
@@ -90,7 +93,7 @@ class Trainer:
                     f"{self.training_dir}best_val_acc_{self.model.__class__.__name__}.pt",
                 )
                 print(
-                    f"{epoch+1}/{epochs} - New best validation perf: {self.best_val_acc:.4f} acc at epoch {self.best_epoch} - score: {self.best_score:.4f} - train acc: {self.train_acc[-1]:.4f}"
+                    f"{epoch+1}/{epochs} - New best validation acc: {self.best_val_acc:.4f} acc at epoch {self.best_epoch} - score: {self.val_score[-1]:.4f} - train acc: {self.train_acc[-1]:.4f}"
                 )
             if improved_score:
                 self.best_val_loss = self.val_loss[-1]
@@ -100,7 +103,7 @@ class Trainer:
                     f"{self.training_dir}best_val_score_{self.model.__class__.__name__}.pt",
                 )
                 print(
-                    f"{epoch+1}/{epochs} - New best validation perf: {self.best_val_acc:.4f} acc at epoch {self.best_epoch} - score: {self.best_score:.4f} - train acc: {self.train_acc[-1]:.4f}"
+                    f"{epoch+1}/{epochs} - New best validation score: {self.val_acc[-1]:.4f} acc at epoch {self.best_epoch} - score: {self.best_score:.4f} - train acc: {self.train_acc[-1]:.4f}"
                 )
             else:
                 print(
@@ -121,6 +124,7 @@ class Trainer:
             "best_val_acc": self.best_val_acc,
             "best_val_score": self.best_score,
             "best_epoch": self.best_epoch,
+            "val_score_dicts": self.val_score_dicts,
         }
 
     def train_epoch(self):
@@ -136,12 +140,20 @@ class Trainer:
             else:
                 data = images.to(self.device), metadata.squeeze().to(self.device)
             if isinstance(targets, list):
+                pfs = targets[1]
                 targets = targets[0].to(self.device)
             else:
                 targets = targets.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.loss_fn(output, targets)
+            if not self.event_filter:
+                loss = self.loss_fn(output, targets)
+            else:
+                batch_inds = []
+                for batch_ind, cur_pfs in enumerate(pfs):
+                    if cur_pfs[0]:
+                        batch_inds.append(batch_ind)
+                loss = self.loss_fn(output[batch_inds], targets[batch_inds])
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.item()
@@ -177,7 +189,15 @@ class Trainer:
                 else:
                     targets = targets.to(self.device)
                 output = self.model(data)
-                loss = self.loss_fn(output, targets)
+                if not self.event_filter:
+                    loss = self.loss_fn(output, targets)
+                else:
+                    batch_inds = []
+                    for batch_ind, (cur_output, cur_targets, cur_pfs) in enumerate(zip(output, targets, pfs)):
+                        if cur_pfs[0]:
+                            batch_inds.append(batch_ind)
+                    loss = self.loss_fn(output[batch_inds], targets[batch_inds])
+
                 val_loss += loss.item()
                 pred = output.argmax(dim=1, keepdim=True)
                 val_acc += (
@@ -199,7 +219,7 @@ class Trainer:
                     )
                 elif self.loss_fn is LUNG_LOSS:
                     estimates = torch.nn.functional.softmax(output, dim=1).to("cpu")
-
+                    epoch_preds.extend([i.item() for i in pred])
                     epoch_outputs.extend([i for i in estimates])
                     epoch_targets.extend(pfs)
 
@@ -208,11 +228,13 @@ class Trainer:
             self.val_loss.append(val_loss * 10)
             self.val_acc.append(val_acc)
             if self.eval_function is not None and self.loss_fn is PROSTATE_LOSS:
-                self.val_score.append(
-                    self.eval_function(epoch_targets, epoch_outputs, epoch_preds)
+                val_score, val_score_dict = self.eval_function(
+                    epoch_targets, epoch_outputs, epoch_preds
                 )
+                self.val_score.append(val_score)
+                self.val_score_dicts.append(val_score_dict)
             elif self.eval_function is not None and self.loss_fn is LUNG_LOSS:
-                self.val_score.append(self.eval_function(epoch_targets, epoch_outputs))
+                self.val_score.append(self.eval_function(epoch_targets, epoch_preds))
             self.val_time.append(time.time() - start_time)
 
         return self.val_loss, self.val_acc, self.val_time
