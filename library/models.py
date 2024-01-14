@@ -11,9 +11,6 @@ def get_number_of_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-######## PROSTATE CANCER MODELS ########
-
-
 class ProstateImageModel(nn.Module):
     def __init__(self):
         super(ProstateImageModel, self).__init__()
@@ -146,7 +143,6 @@ class ProstateMetadataModelV3(nn.Module):
         self.fc6 = nn.Linear(in_features=192, out_features=512)
         self.cv1 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=5, padding=2)
         self.cv2 = nn.Conv2d(in_channels=16, out_channels=2, kernel_size=3)
-        # self.fc7 = nn.Linear(in_features=64, out_features=2)
         self.drop = nn.Dropout(p=0.05)
 
     def forward(self, x):
@@ -240,7 +236,6 @@ class ProstateCombinedModelV1Tiny(nn.Module):
         self.meta_fc2 = nn.Linear(in_features=16, out_features=32)
         self.meta_fc3 = nn.Linear(in_features=32, out_features=64)
         self.meta_fc4 = nn.Linear(in_features=64, out_features=128)
-        # self.meta_fc5 = nn.Linear(in_features=64, out_features=128)
         self.meta_drop = nn.Dropout(p=0.05)
 
         # image layers
@@ -304,8 +299,6 @@ class ProstateCombinedModelV1Tiny(nn.Module):
         meta_out = self.meta_drop(meta_out)
         meta_out = self.relu(meta_out)
 
-        # meta_out = self.meta_fc5(meta_out)
-        # meta_out = self.meta_drop(meta_out)
         combo_in2 = meta_out
 
         # combo layers - consider FC that can be reshaped to match dimensions of conv outputs and added (112x112 for fc2)
@@ -416,9 +409,6 @@ class ProstateCombinedModelV1_1Tiny(nn.Module):
         self.image_drop2d = nn.Dropout2d(p=0.01)
 
         # combo layers
-        # self.combo_fc1 = nn.Linear(
-        #     in_features=32, out_features=48 * 64 * 64
-        # )
         self.combo_fc2 = nn.Linear(in_features=32, out_features=10 * 10 * 128)
 
     def forward(self, data):
@@ -440,11 +430,8 @@ class ProstateCombinedModelV1_1Tiny(nn.Module):
 
         meta_out = self.meta_fc5(meta_out)
         meta_out += meta_res1
-        # meta_out = self.meta_drop(meta_out)
-        combo_in2 = meta_out
 
-        # combo layers - consider FC that can be reshaped to match dimensions of conv outputs and added (112x112 for fc2)
-        # combo_out1 = self.combo_fc1(combo_in1)
+        combo_in2 = meta_out
         combo_out2 = self.combo_fc2(combo_in2)
 
         # image_layers
@@ -457,9 +444,6 @@ class ProstateCombinedModelV1_1Tiny(nn.Module):
         image_out = self.image_conv3(image_out)
         image_out = self.image_maxpool2(image_out)
         residuals_2 = image_out
-
-        # combo_image_enhancer = combo_out1.view(image_out.shape)
-        # image_out += combo_image_enhancer
 
         image_out = self.relu(image_out)
 
@@ -505,8 +489,6 @@ class ProstateCombinedModel(nn.Module):
         self.meta_fc3 = nn.Linear(in_features=64, out_features=128)
         self.meta_fc4 = nn.Linear(in_features=128, out_features=256)
         self.meta_fc5 = nn.Linear(in_features=256, out_features=512)
-        # self.meta_fc6 = nn.Linear(in_features = 512, out_features=256)
-        # self.meta_fc7 = nn.Linear(in_features = 64, out_features=2)
         self.meta_drop = nn.Dropout(p=0.05)
 
         # image layers
@@ -554,7 +536,6 @@ class ProstateCombinedModel(nn.Module):
             in_features=2, out_features=input_slice_count * 256 * 256
         )
         self.combo_fc2 = nn.Linear(in_features=512, out_features=10 * 10 * 512)
-        # self.combo_output = nn.Linear(in_features = 512, out_features=2)
 
     def forward(self, data):
         image, meta = data
@@ -576,13 +557,6 @@ class ProstateCombinedModel(nn.Module):
         meta_out = self.meta_fc5(meta_out)
         meta_out = self.meta_drop(meta_out)
         combo_in2 = meta_out
-        # meta_out = self.relu(meta_out)
-
-        # meta_out = self.meta_fc6(meta_out)
-        # meta_out = self.meta_drop(meta_out)
-        # meta_out = self.relu(meta_out)
-
-        # meta_out = self.meta_fc7(meta_out)
 
         # combo layers - consider FC that can be reshaped to match dimensions of conv outputs and added (112x112 for fc2)
         combo_out1 = self.combo_fc1(combo_in1)
@@ -626,16 +600,12 @@ class ProstateCombinedModel(nn.Module):
         image_out = self.relu(image_out)
         image_out = self.image_fc2(image_out)
 
-        # combined_out = torch.cat((image_out, meta_out), dim=1)
-        # combined_out = self.combo_output(combined_out)
-
         return image_out
 
 
 class ProstateCombinedResnet18PretrainedModel(nn.Module):
     def __init__(self, frozen_layers=[], eval_mode=False):
         super(ProstateCombinedResnet18PretrainedModel, self).__init__()
-        # import pudb; pudb.set_trace()
         self.eval_mode = eval_mode
         self.model_data_type = "both"
         self.relu = nn.ReLU(inplace=True)
@@ -688,7 +658,6 @@ class ProstateCombinedResnet18PretrainedModel(nn.Module):
         self.resnet_layers["fc"] = self.final_fc1
 
     def forward(self, data):
-        # import pudb; pudb.set_trace()
         image, meta = data
         # meta layers
         meta_out = self.meta_fc1(meta)
@@ -707,7 +676,7 @@ class ProstateCombinedResnet18PretrainedModel(nn.Module):
 
         meta_out = self.meta_fc5(meta_out)
         meta_out += meta_res1
-        # meta_out = self.meta_drop(meta_out)
+
         combo_in2 = meta_out
 
         # combo layers
@@ -750,12 +719,10 @@ class ProstateCombinedResnet18PretrainedModel(nn.Module):
 class ProstateCombinedResnet18PretrainedModel_V2_Grid(nn.Module):
     def __init__(self, frozen_layers=[], eval_mode=False):
         super(ProstateCombinedResnet18PretrainedModel_V2_Grid, self).__init__()
-        # import pudb; pudb.set_trace()
         self.eval_mode = eval_mode
         self.model_data_type = "both"
         self.relu = nn.ReLU(inplace=True)
 
-        # self.resnet18 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT, progress=True)
         try:
             with open("./library/resnet18.pkl", "rb") as f:
                 self.resnet18 = pkl.load(f)
@@ -813,7 +780,6 @@ class ProstateCombinedResnet18PretrainedModel_V2_Grid(nn.Module):
         )
 
     def forward(self, data):
-        # import pudb; pudb.set_trace()
         image, meta = data
         # meta layers
         meta_out = self.meta_fc1(meta)
@@ -832,7 +798,7 @@ class ProstateCombinedResnet18PretrainedModel_V2_Grid(nn.Module):
 
         meta_out = self.meta_fc5(meta_out)
         meta_out += meta_res1
-        # meta_out = self.meta_drop(meta_out)
+
         combo_in2 = meta_out
 
         # combo layers
@@ -865,12 +831,11 @@ class ProstateCombinedResnet18PretrainedModel_V2_Grid(nn.Module):
 class ProstateCombinedResnet18PretrainedModel_V2_1_Grid(nn.Module):
     def __init__(self, frozen_layers=[], eval_mode=False):
         super(ProstateCombinedResnet18PretrainedModel_V2_1_Grid, self).__init__()
-        # import pudb; pudb.set_trace()
+
         self.eval_mode = eval_mode
         self.model_data_type = "both"
         self.relu = nn.ReLU(inplace=True)
 
-        # self.resnet18 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT, progress=True)
         try:
             with open("./library/resnet18.pkl", "rb") as f:
                 self.resnet18 = pkl.load(f)
@@ -930,7 +895,6 @@ class ProstateCombinedResnet18PretrainedModel_V2_1_Grid(nn.Module):
         self.flatten = nn.Flatten()
 
     def forward(self, data):
-        # import pudb; pudb.set_trace()
         image, meta = data
         # meta layers
         meta_out = self.meta_fc1(meta)
@@ -954,7 +918,7 @@ class ProstateCombinedResnet18PretrainedModel_V2_1_Grid(nn.Module):
 
         meta_out = self.meta_fc5(meta_out)
         meta_out += meta_res1
-        # meta_out = self.meta_drop(meta_out)
+
         combo_in2 = meta_out
 
         # combo layers
@@ -987,7 +951,6 @@ class ProstateCombinedResnet18PretrainedModel_V2_1_Grid(nn.Module):
 class ProstateImageResnet18PretrainedModel(nn.Module):
     def __init__(self, frozen_layers=[]):
         super(ProstateImageResnet18PretrainedModel, self).__init__()
-        # import pudb; pudb.set_trace()
         self.model_data_type = "both"
         self.relu = nn.ReLU(inplace=True)
 
@@ -1017,17 +980,10 @@ class ProstateImageResnet18PretrainedModel(nn.Module):
         # layer3 -> 256x16x16
 
         # metadata layers
-        # self.meta_fc1 = nn.Linear(in_features=2, out_features=16)
-        # self.meta_fc2 = nn.Linear(in_features=16, out_features=32)
-        # self.meta_fc3 = nn.Linear(in_features=32, out_features=64)
-        # self.meta_fc4 = nn.Linear(in_features=64, out_features=128)
-        # self.meta_fc5 = nn.Linear(in_features=128, out_features=32)
         self.meta_drop = nn.Dropout(p=0.05)
 
         self.image_drop = nn.Dropout(p=0.05)
         self.image_drop2d = nn.Dropout2d(p=0.01)
-
-        # self.combo_fc = nn.Linear(in_features=32, out_features=3)
 
         self.final_fc1 = nn.Linear(in_features=512, out_features=256)
         self.final_fc2 = nn.Linear(in_features=256, out_features=2)
@@ -1035,35 +991,7 @@ class ProstateImageResnet18PretrainedModel(nn.Module):
         self.resnet_layers["fc"] = self.final_fc1
 
     def forward(self, data):
-        # import pudb; pudb.set_trace()
         image, meta = data
-        # meta layers
-        # meta_out = self.meta_fc1(meta)
-        # meta_out = self.relu(meta_out)
-
-        # meta_out = self.meta_fc2(meta_out)
-        # meta_res1 = meta_out
-        # meta_out = self.relu(meta_out)
-
-        # meta_out = self.meta_fc3(meta_out)
-        # meta_out = self.relu(meta_out)
-
-        # meta_out = self.meta_fc4(meta_out)
-        # meta_out = self.meta_drop(meta_out)
-        # meta_out = self.relu(meta_out)
-
-        # meta_out = self.meta_fc5(meta_out)
-        # meta_out += meta_res1
-        # # meta_out = self.meta_drop(meta_out)
-        # combo_in2 = meta_out
-
-        # # combo layers
-        # combo_out = self.combo_fc(combo_in2)
-
-        # image_in1 = combo_out[:, 0][:, None, None, None] * image[:, 0][:,None]
-        # image_in2 = combo_out[:, 1][:, None, None, None] * image[:, 1][:,None]
-        # image_in3 = combo_out[:, 2][:, None, None, None] * image[:, 2][:,None]
-        # image = torch.cat((image_in1, image_in2, image_in3), dim=1)
 
         # image layers
         for layer_name, resnet_layer in self.resnet_layers.items():
@@ -1212,8 +1140,6 @@ class LungCombinedModel(nn.Module):
         self.meta_fc3_down = nn.Linear(in_features=128, out_features=32)
         self.meta_fc4 = nn.Linear(in_features=128, out_features=256)
         self.meta_fc5 = nn.Linear(in_features=256, out_features=512)
-        # self.meta_fc6 = nn.Linear(in_features = 512, out_features=256)
-        # self.meta_fc7 = nn.Linear(in_features = 64, out_features=2)
         self.meta_drop = nn.Dropout(p=0.1)
 
         # image layers
@@ -1251,10 +1177,8 @@ class LungCombinedModel(nn.Module):
 
         # combo layers
         self.combo_fc1 = nn.Linear(in_features=32, out_features=9)
-        # self.combo_output = nn.Linear(in_features = 512, out_features=2)
 
     def forward(self, data):
-        # import pudb; pudb.set_trace()
         image, meta = data
         # meta layers
         meta_out = self.meta_fc1(meta)
@@ -1273,13 +1197,7 @@ class LungCombinedModel(nn.Module):
 
         meta_out = self.meta_fc5(meta_out)
         meta_out = self.meta_drop(meta_out)
-        # meta_out = self.relu(meta_out)
 
-        # meta_out = self.meta_fc6(meta_out)
-        # meta_out = self.meta_drop(meta_out)
-        # meta_out = self.relu(meta_out)
-
-        # meta_out = self.meta_fc7(meta_out)
 
         # combo layers - consider FC that can be reshaped to match dimensions of conv outputs and added (112x112 for fc2)
         combo_in1 = self.meta_fc3_down(combo_in1)
@@ -1331,11 +1249,9 @@ class LungCombinedModel(nn.Module):
 class LungCombinedResnet18PretrainedModel(nn.Module):
     def __init__(self, frozen_layers=[], number_of_buckets=360):
         super(LungCombinedResnet18PretrainedModel, self).__init__()
-        # import pudb; pudb.set_trace()
         self.model_data_type = "both"
         self.relu = nn.ReLU(inplace=True)
 
-        # self.resnet18 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT, progress=True)
         try:
             with open("./library/resnet18.pkl", "rb") as f:
                 self.resnet18 = pkl.load(f)
@@ -1383,7 +1299,6 @@ class LungCombinedResnet18PretrainedModel(nn.Module):
         self.resnet_layers["fc"] = self.final_fc1
 
     def forward(self, data):
-        # import pudb; pudb.set_trace()
         image, meta = data
         # meta layers
         meta_out = self.meta_fc1(meta)
@@ -1402,7 +1317,7 @@ class LungCombinedResnet18PretrainedModel(nn.Module):
 
         meta_out = self.meta_fc5(meta_out)
         meta_out += meta_res1
-        # meta_out = self.meta_drop(meta_out)
+
         combo_in2 = meta_out
 
         # combo layers
@@ -1439,11 +1354,9 @@ class LungCombinedResnet18PretrainedModel(nn.Module):
 class LungCombinedResnet18PretrainedModelV2AllMeta(nn.Module):
     def __init__(self, frozen_layers=[], number_of_buckets=360):
         super(LungCombinedResnet18PretrainedModelV2AllMeta, self).__init__()
-        # import pudb; pudb.set_trace()
         self.model_data_type = "both"
         self.relu = nn.ReLU(inplace=True)
 
-        # self.resnet18 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT, progress=True)
         try:
             with open("./library/resnet18.pkl", "rb") as f:
                 self.resnet18 = pkl.load(f)
@@ -1491,7 +1404,6 @@ class LungCombinedResnet18PretrainedModelV2AllMeta(nn.Module):
         self.resnet_layers["fc"] = self.final_fc1
 
     def forward(self, data):
-        # import pudb; pudb.set_trace()
         image, meta = data
         # meta layers
         meta_out = self.meta_fc1(meta)
@@ -1510,7 +1422,7 @@ class LungCombinedResnet18PretrainedModelV2AllMeta(nn.Module):
 
         meta_out = self.meta_fc5(meta_out)
         meta_out += meta_res1
-        # meta_out = self.meta_drop(meta_out)
+
         combo_in2 = meta_out
 
         # combo layers

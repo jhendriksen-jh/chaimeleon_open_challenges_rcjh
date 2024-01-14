@@ -10,7 +10,10 @@ from evalutils.validators import (
     UniqueImagesValidator,
 )
 
-from library.models import ProstateCombinedResnet18PretrainedModel, ProstateCombinedResnet18PretrainedModel_V2_1_Grid
+from library.models import (
+    ProstateCombinedResnet18PretrainedModel,
+    ProstateCombinedResnet18PretrainedModel_V2_1_Grid,
+)
 from library.datasets import ProstateCancerDataset, create_dataloader
 
 
@@ -69,7 +72,6 @@ class Prostatecancerriskprediction(ClassificationAlgorithm):
 
         # TODO: Add your inference code here
         risk_scores = ["Low", "High"]
-
 
         model_path = "./library/release_models/v3/20240106_avgfill_reduced_bias_unfrozen_003lr_30p_best_val_score_ProstateCombinedResnet18PretrainedModel_V2_1_Grid.pt"
         # v1 & v2
