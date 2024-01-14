@@ -127,7 +127,6 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
             device = get_device()
             training_batch_size = 48
 
-
             train_dataset = ProstateCancerDataset(
                 data_directory, random_seed=random_seed
             )
@@ -294,11 +293,11 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
         training_timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         for event_filter in [
-            # True, 
+            True,
             False,
-            ]:
+        ]:
             for frozen_layers in [
-                # [],
+                [],
                 ["layer2", "layer3"],
             ]:
                 for number_of_buckets, months_per_gt_bucket in [
@@ -411,10 +410,13 @@ def main(data_directory: str, train: bool = False, cancer: str = None):
                             best_model_performances.append(
                                 f"{lung_model.__class__.__name__}_{starting_lr}_learning_rate_{frozen_layers}_frozen_{number_of_buckets}_buckets_{months_per_gt_bucket}_months_{event_filter}_event_filter - best_epoch: {training_details['best_epoch']} - best_acc: {training_details['best_val_acc']} - best_score: {training_details['best_val_score']} - {get_number_of_parameters(lung_model):_} params"
                             )
-                            with open(f"{training_dir}/training_details.json", "w") as f:
+                            with open(
+                                f"{training_dir}/training_details.json", "w"
+                            ) as f:
                                 json.dump(training_details, f, indent=4)
                             with open(
-                                f"./{training_timestamp}_overall_exp_agg_results.txt", "w"
+                                f"./{training_timestamp}_overall_exp_agg_results.txt",
+                                "w",
                             ) as f:
                                 for best_model_performance in best_model_performances:
                                     print(best_model_performance)

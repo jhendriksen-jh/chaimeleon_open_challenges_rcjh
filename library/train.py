@@ -5,7 +5,6 @@ import torch
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 
-# PROSTATE_LOSS = torch.nn.BCEWithLogitsLoss(reduction="mean")
 PROSTATE_LOSS = torch.nn.BCEWithLogitsLoss(
     reduction="mean", pos_weight=torch.tensor([4], device="cuda")
 )
@@ -193,7 +192,9 @@ class Trainer:
                     loss = self.loss_fn(output, targets)
                 else:
                     batch_inds = []
-                    for batch_ind, (cur_output, cur_targets, cur_pfs) in enumerate(zip(output, targets, pfs)):
+                    for batch_ind, (cur_output, cur_targets, cur_pfs) in enumerate(
+                        zip(output, targets, pfs)
+                    ):
                         if cur_pfs[0]:
                             batch_inds.append(batch_ind)
                     loss = self.loss_fn(output[batch_inds], targets[batch_inds])
